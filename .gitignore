@@ -24,6 +24,7 @@ htmlcov/
 *.swp
 *.swo
 *~
+.env
 
 # OS
 .DS_Store
@@ -44,3 +45,4 @@ build/Makefile
 # ACJ specific
 cache/
 output/
+*.tar.xz
