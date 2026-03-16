@@ -46,3 +46,7 @@ build/Makefile
 cache/
 output/
 *.tar.xz
+
+# NixOs
+.venv/
+.envrc
