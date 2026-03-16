@@ -14,5 +14,5 @@ find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)
 find_package(CGAL REQUIRED)
 
-# Add the acj_core subdirectory
-add_subdirectory(acj/core)
+# NUEVA RUTA: Apunta a la carpeta src/
+add_subdirectory(src/acj/core)
