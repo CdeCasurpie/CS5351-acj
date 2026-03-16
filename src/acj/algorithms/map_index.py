@@ -30,10 +30,15 @@ class MapIndex:
         try:
             import sys
             import os
-            build_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'build')
-            if os.path.exists(build_path) and build_path not in sys.path:
-                sys.path.insert(0, build_path)
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
             
+            build_root = os.path.join(project_root, 'build')
+            build_core = os.path.join(build_root, 'src', 'acj', 'core')
+            
+            for path in [build_root, build_core]:
+                if os.path.exists(path) and path not in sys.path:
+                    sys.path.insert(0, path)
+    
             import acj_core
             self._acj_core = acj_core
         except ImportError as e:
@@ -42,7 +47,6 @@ class MapIndex:
                 "Please ensure the C++ extension is compiled. "
                 f"Original error: {e}"
             )
-
     def _build_adjacency_list(self):
         """Builds an adjacency list for the graph for neighbor lookups."""
         if self._adjacency_list is not None:

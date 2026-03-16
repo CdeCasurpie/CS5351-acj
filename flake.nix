@@ -22,6 +22,7 @@
         python3
         python3Packages.pip
         python3Packages.virtualenv
+		python3Packages.pybind11
         libsForQt5.qtbase
         libGL
         libGLU

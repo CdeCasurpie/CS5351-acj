@@ -41,62 +41,63 @@ def simplify_graph_topological(graph_data: GraphData) -> GraphData:
     if len(nodes_df) == 0 or len(segments_df) == 0:
         return graph_data
     
-    # Build adjacency list
-    adjacency = defaultdict(list)
-    node_degrees = defaultdict(int)
+    # Construimos listas de adyacencia direccionales (in/out)
+    out_edges = defaultdict(list)
+    in_edges = defaultdict(list)
     
     for _, seg in segments_df.iterrows():
         start, end = seg['node_start'], seg['node_end']
-        adjacency[start].append(end)
-        adjacency[end].append(start)
-        node_degrees[start] += 1
-        node_degrees[end] += 1
+        out_edges[start].append(end)
+        in_edges[end].append(start)
     
-    # Identify nodes to keep (degree != 2)
+    # Identificamos qué nodos conservar
+    # Solo borramos si el nodo es estrictamente un punto intermedio (1 entrada, 1 salida)
     nodes_to_keep = set()
-    for node_id in node_degrees:
-        if node_degrees[node_id] != 2:
+    all_nodes = set(nodes_df['node_id'])
+    
+    for node_id in all_nodes:
+        in_deg = len(in_edges[node_id])
+        out_deg = len(out_edges[node_id])
+        
+        if not (in_deg == 1 and out_deg == 1):
             nodes_to_keep.add(node_id)
     
-    # If all nodes should be kept, return original
+    # Si conservamos todos, devolvemos el original
     if len(nodes_to_keep) == len(nodes_df):
         return graph_data
     
-    # Build new segments by tracing paths between kept nodes
+    # Reconstruimos los segmentos saltando los nodos eliminados
     new_segments = []
     segment_id = 0
     visited_edges = set()
     
     for start_node in nodes_to_keep:
-        for neighbor in adjacency[start_node]:
-            edge = tuple(sorted([start_node, neighbor]))
+        for neighbor in out_edges[start_node]:
+            edge = (start_node, neighbor)
             if edge in visited_edges:
                 continue
             
-            # Trace path from start_node through degree-2 nodes until we hit another kept node
+            # Trazamos el camino
             path = [start_node]
             current = neighbor
             
             while current not in nodes_to_keep:
                 path.append(current)
-                # Get next node (the one that's not the previous node in path)
-                neighbors = [n for n in adjacency[current] if n != path[-2]]
-                if len(neighbors) != 1:
-                    break  # Something wrong, stop
-                current = neighbors[0]
+                visited_edges.add((path[-2], current))
+                # Avanzamos al siguiente nodo
+                next_nodes = out_edges[current]
+                if len(next_nodes) != 1:
+                    break
+                current = next_nodes[0]
             
-            # Add final node
+            # Añadimos el nodo final (que sí está en nodes_to_keep)
             path.append(current)
+            visited_edges.add((path[-2], current))
             
-            # Mark all edges in path as visited
-            for i in range(len(path) - 1):
-                visited_edges.add(tuple(sorted([path[i], path[i+1]])))
-            
-            # Create segment from start to end of path
             start_id = path[0]
             end_id = path[-1]
             
-            if start_id != end_id:  # Avoid self-loops
+            if start_id != end_id:  # Evitar self-loops
                 start_coords = nodes_df[nodes_df['node_id'] == start_id].iloc[0]
                 end_coords = nodes_df[nodes_df['node_id'] == end_id].iloc[0]
                 
@@ -111,14 +112,12 @@ def simplify_graph_topological(graph_data: GraphData) -> GraphData:
                 })
                 segment_id += 1
     
-    # Create new nodes and segments DataFrames
     new_nodes_df = nodes_df[nodes_df['node_id'].isin(nodes_to_keep)].copy().reset_index(drop=True)
     new_segments_df = pd.DataFrame(new_segments) if new_segments else pd.DataFrame(
         columns=['segment_id', 'node_start', 'node_end', 'x1', 'y1', 'x2', 'y2']
     )
     
     return GraphData(new_nodes_df, new_segments_df)
-
 
 def simplify_graph_geometric(graph_data: GraphData, threshold_meters: float = 10.0) -> GraphData:
     """
@@ -152,24 +151,25 @@ def simplify_graph_geometric(graph_data: GraphData, threshold_meters: float = 10
         - Best for very dense networks with many close intersections
         - Uses CGAL for high-performance spatial operations
     """
-    # First apply topological simplification
-    topo_simplified = simplify_graph_topological(graph_data)
+    if len(graph_data.nodes) == 0:
+        return graph_data
     
-    if len(topo_simplified.nodes) == 0:
-        return topo_simplified
+    # Get node coordinates directly (skip topological to avoid removing valid intersections)
+    node_coords = graph_data.nodes[['x', 'y']].values
+    node_ids = graph_data.nodes['node_id'].values
     
-    # Import CGAL core for spatial operations
-    try:
-        import acj_core
-    except ImportError:
-        raise ImportError("CGAL core module not available. Run 'make build' first.")
+    # Use slightly smaller threshold to avoid merging exact boundary matches (e.g. exactly 10.0m)
+    safe_threshold = max(0.0, threshold_meters - 1e-5)
+    clusters = _find_node_clusters(node_coords, safe_threshold)
     
-    # Get node coordinates
-    node_coords = topo_simplified.nodes[['x', 'y']].values
-    node_ids = topo_simplified.nodes['node_id'].values
-    
-    # Build spatial index and find clusters
-    clusters = _find_node_clusters(node_coords, threshold_meters)
+    # Ensure isolated nodes (not clustered by CGAL) are kept as their own cluster of size 1
+    clustered_indices = set()
+    for cluster in clusters:
+        clustered_indices.update(cluster)
+        
+    for i in range(len(node_coords)):
+        if i not in clustered_indices:
+            clusters.append([i])
     
     # Create mapping from old node IDs to new cluster IDs
     node_to_cluster = {}
@@ -183,15 +183,15 @@ def simplify_graph_geometric(graph_data: GraphData, threshold_meters: float = 10
         centroid_x = np.mean(cluster_coords[:, 0])
         centroid_y = np.mean(cluster_coords[:, 1])
         
-        # Use the first node ID as the cluster representative (convert to int)
+        # Use the first node ID as the cluster representative
         cluster_rep_id = int(cluster_node_ids[0])
         cluster_centers[cluster_rep_id] = (centroid_x, centroid_y)
         
-        # Map all nodes in cluster to representative (convert keys to int)
+        # Map all nodes in cluster to representative
         for node_id in cluster_node_ids:
             node_to_cluster[int(node_id)] = cluster_rep_id
     
-    # Create new nodes (cluster representatives)
+    # Create new nodes
     new_nodes_data = []
     for cluster_rep_id, (centroid_x, centroid_y) in cluster_centers.items():
         new_nodes_data.append({
@@ -202,26 +202,30 @@ def simplify_graph_geometric(graph_data: GraphData, threshold_meters: float = 10
     
     new_nodes_df = pd.DataFrame(new_nodes_data)
     
-    # Update segments to use cluster representatives
+    # Update segments to use cluster representatives and deduplicate parallel edges
     new_segments_data = []
     segment_id_counter = 0
+    seen_edges = set()
     
-    for _, segment in topo_simplified.segments.iterrows():
+    for _, segment in graph_data.segments.iterrows():
         start_id = int(segment['node_start'])
         end_id = int(segment['node_end'])
         
-        # Skip segments that reference non-existent nodes
         if start_id not in node_to_cluster or end_id not in node_to_cluster:
             continue
         
         start_cluster = node_to_cluster[start_id]
         end_cluster = node_to_cluster[end_id]
         
-        # Skip self-loops
         if start_cluster == end_cluster:
             continue
+            
+        # Deduplication mechanism to prevent double segments
+        edge_key = tuple(sorted([start_cluster, end_cluster]))
+        if edge_key in seen_edges:
+            continue
+        seen_edges.add(edge_key)
         
-        # Get cluster center coordinates
         start_center = cluster_centers[start_cluster]
         end_center = cluster_centers[end_cluster]
         
@@ -241,16 +245,7 @@ def simplify_graph_geometric(graph_data: GraphData, threshold_meters: float = 10
     else:
         new_segments_df = pd.DataFrame(new_segments_data)
     
-    # If we have no segments, return empty graph
-    if len(new_nodes_df) == 0:
-        return GraphData(
-            pd.DataFrame(columns=['node_id', 'x', 'y']),
-            pd.DataFrame(columns=['segment_id', 'node_start', 'node_end', 'x1', 'y1', 'x2', 'y2'])
-        )
-    
     return GraphData(new_nodes_df, new_segments_df)
-
-
 def _find_node_clusters(coords: np.ndarray, threshold: float) -> List[List[int]]:
     """
     Find clusters of nodes within threshold distance using CGAL spatial indexing.
@@ -266,23 +261,22 @@ def _find_node_clusters(coords: np.ndarray, threshold: float) -> List[List[int]]
     Returns:
         List of clusters, where each cluster is a list of node indices
     """
-    import acj_core
+    try:
+        import acj_core
+    except ImportError:
+        raise ImportError("CGAL core module not available. Compile the extension first.")
     
     n_nodes = len(coords)
     if n_nodes == 0:
         return []
     
-    # Use CGAL's spatial indexing for efficient clustering
-    # This leverages the same CGAL infrastructure as MapIndex
     clusters = acj_core.find_clusters_cgal(coords, threshold)
     
-    # Convert from Python list of lists to List[List[int]]
     result = []
     for cluster in clusters:
         result.append(list(cluster))
     
     return result
-
 
 def simplify_graph_parallel_cgal(nodes_df: pd.DataFrame, segments_df: pd.DataFrame, 
                                   distance_threshold: float = 10.0, 
@@ -316,13 +310,84 @@ def simplify_graph_parallel_cgal(nodes_df: pd.DataFrame, segments_df: pd.DataFra
     if len(nodes_df) == 0 or len(segments_df) == 0:
         return GraphData(nodes_df, segments_df)
     
-    # For now, return the original graph
-    # Full parallel segment merging is complex and requires spatial indexing
-    # This can be implemented later if needed
-    return GraphData(nodes_df.copy(), segments_df.copy())
+    nodes = nodes_df.copy()
+    segments = segments_df.copy()
+    
+    merged_segment_indices = set()
+    new_nodes = []
+    new_segments = []
+    
+    next_node_id = nodes['node_id'].max() + 1
+    next_seg_id = segments['segment_id'].max() + 1
+    node_replacements = {}
+    
+    for i, row1 in segments.iterrows():
+        if i in merged_segment_indices:
+            continue
+        
+        for j, row2 in segments.iterrows():
+            if i >= j or j in merged_segment_indices:
+                continue
+                
+            dx1, dy1 = row1['x2'] - row1['x1'], row1['y2'] - row1['y1']
+            dx2, dy2 = row2['x2'] - row2['x1'], row2['y2'] - row2['y1']
+            
+            len1 = np.hypot(dx1, dy1)
+            len2 = np.hypot(dx2, dy2)
+            
+            if len1 == 0 or len2 == 0: continue
+            
+            cos_theta = (dx1*dx2 + dy1*dy2) / (len1 * len2)
+            cos_theta = max(-1.0, min(1.0, cos_theta))
+            angle = np.degrees(np.arccos(abs(cos_theta)))
+            
+            if angle <= angle_threshold_deg:
+                mid_x1, mid_y1 = (row1['x1'] + row1['x2'])/2, (row1['y1'] + row1['y2'])/2
+                mid_x2, mid_y2 = (row2['x1'] + row2['x2'])/2, (row2['y1'] + row2['y2'])/2
+                dist = np.hypot(mid_x1 - mid_x2, mid_y1 - mid_y2)
+                
+                if dist <= distance_threshold:
+                    merged_segment_indices.add(i)
+                    merged_segment_indices.add(j)
+                    
+                    start_x = (row1['x1'] + row2['x1'])/2
+                    start_y = (row1['y1'] + row2['y1'])/2
+                    end_x = (row1['x2'] + row2['x2'])/2
+                    end_y = (row1['y2'] + row2['y2'])/2
+                    
+                    node_start_id = next_node_id; next_node_id += 1
+                    node_end_id = next_node_id; next_node_id += 1
+                    
+                    new_nodes.extend([
+                        {'node_id': node_start_id, 'x': start_x, 'y': start_y},
+                        {'node_id': node_end_id, 'x': end_x, 'y': end_y}
+                    ])
+                    
+                    new_segments.append({
+                        'segment_id': next_seg_id,
+                        'node_start': node_start_id, 'node_end': node_end_id,
+                        'x1': start_x, 'y1': start_y, 'x2': end_x, 'y2': end_y
+                    })
+                    next_seg_id += 1
+                    
+                    node_replacements[row1['node_start']] = node_start_id
+                    node_replacements[row1['node_end']] = node_end_id
+                    node_replacements[row2['node_start']] = node_start_id
+                    node_replacements[row2['node_end']] = node_end_id
+                    break
+                    
+    if not merged_segment_indices:
+        return GraphData(nodes_df.copy(), segments_df.copy())
+    
+    final_segments = [row.to_dict() for idx, row in segments.iterrows() if idx not in merged_segment_indices]
+    final_segments.extend(new_segments)
+    
+    final_nodes = [row.to_dict() for idx, row in nodes.iterrows() if row['node_id'] not in node_replacements]
+    final_nodes.extend(new_nodes)
+    
+    return GraphData(pd.DataFrame(final_nodes), pd.DataFrame(final_segments))
 
-
-def simplify_graph(graph_data: GraphData, threshold_meters: float = 10.0) -> GraphData:
+def simplify_graph(graph_data: GraphData, threshold_meters: float = 10.0, method: str = 'auto') -> GraphData:
     """
     Simplify a graph using the most appropriate method based on threshold.
     
@@ -345,7 +410,10 @@ def simplify_graph(graph_data: GraphData, threshold_meters: float = 10.0) -> Gra
         >>> # Geometric with 15m threshold
         >>> simplified = acj.simplify_graph(graph, threshold_meters=15.0)
     """
-    if threshold_meters <= 0:
+    if method == 'topological' or (method == 'auto' and threshold_meters <= 0):
         return simplify_graph_topological(graph_data)
-    else:
+    elif method == 'geometric' or (method == 'auto' and threshold_meters > 0):
         return simplify_graph_geometric(graph_data, threshold_meters)
+    elif method == 'parallel':
+        return simplify_graph_parallel_cgal(graph_data.nodes, graph_data.segments, threshold_meters)
+    return graph_data
