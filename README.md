@@ -21,50 +21,85 @@ ACJ provides efficient spatial assignment of point events (crimes, incidents, se
 
 ## Installation
 
-### Docker (Recommended)
+This project requires compiling C++ extensions (CGAL) alongside Python. To make this painless, we provide three installation methods depending on your environment and expertise.
+
+### 1. NixOS Flakes (Recommended for Developers)
+If you use Nix, this is the most robust method. It provides a fully deterministic, container-free development environment with all C++ and Python dependencies pre-configured.
 
 ```bash
 git clone <repository-url>
-cd pylib
+cd <repository-folder>
 
-# Build Docker image with all dependencies
-make build
+# 1. Enter the deterministic development environment
+nix develop
 
-# Verify installation
-make test
+# 2. Install the Python package in editable mode
+pip install -e .
 
-# Run interactive visualization (requires X11)
-xhost +local:docker
-make example-realtime
-```
-
-### Manual Installation (Linux)
-
-```bash
-# System dependencies (Ubuntu/Debian)
-sudo apt-get install build-essential cmake python3-dev python3-pip
-sudo apt-get install libcgal-dev pybind11-dev
-sudo apt-get install libspatialindex-dev libgeos-dev libproj-dev
-sudo apt-get install libgl1-mesa-glx python3-pyqt5
-
-# Python dependencies
-pip install -r requirements.txt
-
-# Compile C++ extension
+# 3. Compile the C++ extension (CGAL/pybind11)
 mkdir build && cd build
 cmake .. && make -j$(nproc)
-export PYTHONPATH=/path/to/pylib/build:$PYTHONPATH
+
+# 4. Add the compiled binary to your Python path
+export PYTHONPATH=$(pwd)/src/acj/core:$PYTHONPATH
 ```
 
----
+### 2. Docker (Recommended for cross-platform users)
+
+If you are on Windows, macOS, or standard Linux and want a "zero-setup" experience, use our Docker containers.
+
+```bash
+git clone <repository-url>
+cd <repository-folder>
+
+# 1. Build the Docker image with all dependencies
+make build
+
+# 2. Verify the installation by running the test suite
+make test
+
+# 3. Run interactive visualization (Linux requires X11 forwarding)
+xhost +local:docker
+make example-realtime
+
+```
+
+### 3. Manual Installation (Standard Linux)
+
+If you prefer a traditional setup on Ubuntu/Debian, follow these steps to install system dependencies, set up a Python virtual environment, and compile the code.
+
+```bash
+# 1. Install system dependencies (C++, CMake, CGAL, Qt)
+sudo apt-get update
+sudo apt-get install build-essential cmake python3-dev python3-pip python3-venv \
+    libcgal-dev pybind11-dev libspatialindex-dev libgeos-dev libproj-dev \
+    libgl1-mesa-glx python3-pyqt5
+
+# 2. Create and activate a Python virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# 3. Install Python dependencies and the package itself
+pip install -r requirements.txt
+pip install -e .
+
+# 4. Compile the C++ extension
+mkdir build && cd build
+cmake .. && make -j$(nproc)
+
+# 5. Export PYTHONPATH so Python finds the compiled .so file
+export PYTHONPATH=$(pwd)/src/acj/core:$PYTHONPATH
+
+```
 
 ## Quick Start
 
 ### Basic Usage
 
 ```python
-import acj
 import pandas as pd
+from acj.data.io import load_graph
+from acj.algorithms.map_index import MapIndex
 
 # Load graph from DataFrames
 nodes = pd.DataFrame({
@@ -83,10 +118,10 @@ segments = pd.DataFrame({
     'y2': [0.0, 100.0]
 })
 
-graph = acj.load_graph(nodes, segments)
+graph = load_graph(nodes, segments)
 
 # Create spatial index
-map_index = acj.MapIndex(graph)
+map_index = MapIndex(graph)
 
 # Assign points to nearest nodes
 crimes = pd.DataFrame({
@@ -98,16 +133,20 @@ crimes = pd.DataFrame({
 
 assignments = map_index.assign_to_endpoints(crimes)
 print(assignments[['point_id', 'assigned_node_id', 'distance']])
+
 ```
 
 ### Real City Example
 
 ```python
-import acj
 import numpy as np
+import pandas as pd
+from acj.data.io import load_map
+from acj.algorithms.map_index import MapIndex
+from acj.utils.render import render_heatmap
 
 # Load street network from OpenStreetMap
-graph = acj.load_map("Cholula, Puebla, Mexico")
+graph = load_map("Cholula, Puebla, Mexico")
 
 # Generate sample points
 np.random.seed(42)
@@ -122,20 +161,21 @@ crimes = pd.DataFrame({
 })
 
 # Assign to street network
-map_index = acj.MapIndex(graph)
+map_index = MapIndex(graph)
 assignments = map_index.assign_to_endpoints(crimes)
 
 # Launch interactive visualization
-acj.render_heatmap(map_index, assignments, 
-                   title="Crime Density Heatmap")
+render_heatmap(map_index, assignments, title="Crime Density Heatmap")
+
 ```
 
 **Visualization Controls:**
-- Mouse drag: Pan view
-- Mouse wheel: Zoom
-- N key: Toggle node visibility
-- R key: Reset camera
-- Q or ESC: Close window
+
+* Mouse drag: Pan view
+* Mouse wheel: Zoom
+* N key: Toggle node visibility
+* R key: Reset camera
+* Q or ESC: Close window
 
 ---
 
@@ -143,16 +183,19 @@ acj.render_heatmap(map_index, assignments,
 
 All inputs and outputs use pandas DataFrames with standardized schemas.
 
-### Nodes DataFrame
+### Nodes DataFrame (Input)
+
 ```python
 pd.DataFrame({
     'node_id': int,    # Unique identifier
     'x': float,        # X coordinate (meters, projected CRS)
     'y': float         # Y coordinate (meters, projected CRS)
 })
+
 ```
 
-### Segments DataFrame
+### Segments DataFrame (Input)
+
 ```python
 pd.DataFrame({
     'segment_id': int,     # Unique identifier
@@ -161,9 +204,11 @@ pd.DataFrame({
     'x1': float, 'y1': float,  # Start coordinates
     'x2': float, 'y2': float   # End coordinates
 })
+
 ```
 
 ### Points DataFrame (Input)
+
 ```python
 pd.DataFrame({
     'point_id': int,   # Unique identifier
@@ -171,9 +216,11 @@ pd.DataFrame({
     'y': float         # Y coordinate
     # Additional columns preserved in output
 })
+
 ```
 
 ### Assignments DataFrame (Output)
+
 ```python
 pd.DataFrame({
     'point_id': int,           # From input
@@ -182,6 +229,7 @@ pd.DataFrame({
     'distance': float,         # Euclidean distance (meters)
     # All input columns preserved
 })
+
 ```
 
 **Important:** Coordinates must be in a projected coordinate system (e.g., UTM) in meters, not latitude/longitude.
@@ -190,19 +238,19 @@ pd.DataFrame({
 
 ## API Reference
 
-### Data Loading
+### Data Loading (`acj.data.io`)
 
-**`acj.load_graph(nodes_df, segments_df)`**
+**`load_graph(nodes_df, segments_df)`**
 
-Load graph from pandas DataFrames.
+Load a graph from pandas DataFrames.
 
 Returns: `GraphData` object
 
 ---
 
-**`acj.load_map(city_name, cache_dir="./cache", network_type="drive")`**
+**`load_map(city_name, cache_dir="./cache", network_type="drive")`**
 
-Download street network from OpenStreetMap.
+Download a street network from OpenStreetMap.
 
 Parameters:
 - `city_name` (str): City query string (e.g., "Manhattan, New York")
@@ -213,31 +261,36 @@ Returns: `GraphData` object
 
 Example:
 ```python
-graph = acj.load_map("Cholula, Puebla, Mexico")
+from acj.data.io import load_map
+graph = load_map("Cholula, Puebla, Mexico")
+
 ```
 
 ---
 
-### Spatial Indexing
+### Spatial Indexing (`acj.algorithms.map_index`)
 
-**`acj.MapIndex(graph_data)`**
+**`MapIndex(graph_data)`**
 
-Create CGAL-based spatial index.
+Create a CGAL-based spatial index.
 
 **Methods:**
 
 **`assign_to_endpoints(points_df)`**
 
-Assign points to nearest graph nodes.
+Assign points to the nearest graph nodes.
 
-Complexity: O(M log M) build + O(N log M) query
+Complexity: `O(M log M)` build + `O(N log M)` query
 
 Returns: DataFrame with assignments and distances
 
 Example:
+
 ```python
-map_index = acj.MapIndex(graph)
+from acj.algorithms.map_index import MapIndex
+map_index = MapIndex(graph)
 assignments = map_index.assign_to_endpoints(crimes)
+
 ```
 
 **`get_render_data(assignments=None)`**
@@ -248,53 +301,54 @@ Returns: Dictionary with vertex/color arrays
 
 ---
 
-### Visualization
+### Visualization (`acj.utils.render`)
 
-**`acj.render_heatmap(map_index, assignments, title="Crime Density Heatmap")`**
+**`render_heatmap(map_index, assignments, title="Crime Density Heatmap")`**
 
-Launch interactive heatmap visualization.
+Launch an interactive heatmap visualization.
 
 Features:
-- Color gradient: white (low) to yellow to orange to red (high)
-- Gradient interpolation on street segments
-- Real-time zoom/pan with OpenGL acceleration
-- Node visibility toggle
 
-Blocks until window is closed.
+* Color gradient: white (low) to yellow to orange to red (high)
+* Gradient interpolation on street segments
+* Real-time zoom/pan with OpenGL acceleration
+* Node visibility toggle
+
+Blocks execution until the window is closed.
 
 ---
 
-**`acj.render_graph(map_index, title="Street Network")`**
+**`render_graph(map_index, title="Street Network")`**
 
 Launch basic network visualization without heatmap coloring.
 
 ---
 
-### Utilities
+### Graph Utilities (`acj.algorithms.graph`)
 
-**`acj.simplify_graph(graph_data, threshold_meters=10.0)`**
+**`simplify_graph(graph_data, threshold_meters=10.0)`**
 
-Simplify graph using automatic method selection.
+Simplify the graph using automatic method selection.
 
-- `threshold_meters = 0`: Topological simplification only
-- `threshold_meters > 0`: Geometric simplification with distance threshold
+* `threshold_meters = 0`: Topological simplification only
+* `threshold_meters > 0`: Geometric simplification with distance threshold
 
-**`acj.simplify_graph_topological(graph_data)`**
+**`simplify_graph_topological(graph_data)`**
 
-Simplify graph by removing degree-2 nodes (topological simplification).
+Simplify the graph by removing degree-2 nodes (topological simplification).
 
-- Preserves all intersections and connectivity
-- Fast O(n) algorithm suitable for real-time use
-- Best for maintaining network topology
+* Preserves all intersections and connectivity
+* Fast `O(n)` algorithm suitable for real-time use
+* Best for maintaining network topology
 
-**`acj.simplify_graph_geometric(graph_data, threshold_meters=10.0)`**
+**`simplify_graph_geometric(graph_data, threshold_meters=10.0)`**
 
-Simplify graph by merging nearby intersections using CGAL clustering.
+Simplify the graph by merging nearby intersections using CGAL clustering.
 
-- More aggressive simplification than topological
-- May change network topology slightly
-- Best for dense networks with many close intersections
-- Uses CGAL Delaunay triangulation for high-performance spatial clustering
+* More aggressive simplification than topological
+* May change network topology slightly
+* Best for dense networks with many close intersections
+* Uses CGAL Delaunay triangulation for high-performance spatial clustering
 
 ---
 
@@ -306,13 +360,15 @@ Basic demonstration with synthetic data.
 
 ```bash
 make example
+
 ```
 
 Features:
-- Graph creation from DataFrames
-- Spatial index construction
-- Point assignment
-- Result statistics
+
+* Graph creation from DataFrames
+* Spatial index construction
+* Point assignment
+* Result statistics
 
 ---
 
@@ -323,13 +379,15 @@ Complete pipeline with real city data.
 ```bash
 xhost +local:docker
 make example-realtime
+
 ```
 
 Features:
-- OpenStreetMap data loading
-- Random point generation
-- CGAL spatial assignment
-- GPU-accelerated visualization
+
+* OpenStreetMap data loading
+* Random point generation
+* CGAL spatial assignment
+* GPU-accelerated visualization
 
 ---
 
@@ -338,19 +396,21 @@ Features:
 ### Benchmark Results
 
 | Dataset | CGAL Time | Brute-Force Time | Speedup |
-|---------|-----------|------------------|---------|
-| 100k queries on 50k targets | 1.29s | 7.89s | 6.1x |
+| --- | --- | --- | --- |
+| 100k queries on 50k targets | 1.29s | 7.89s | **6.1x** |
 
 Complexity:
-- CGAL: O(M log M) + O(N log M)
-- Brute-force: O(N × M)
+
+* **CGAL:** `O(M log M) + O(N log M)`
+* **Brute-force:** `O(N × M)`
 
 ### Real-World Performance
 
-Cholula, Mexico (5,097 nodes, 11,154 segments):
-- 1,000 assignments: 0.05 seconds
-- GPU upload (one-time): 0.2 seconds
-- Interactive rendering: 60 FPS
+**Cholula, Mexico (5,097 nodes, 11,154 segments):**
+
+* 1,000 assignments: 0.05 seconds
+* GPU upload (one-time): 0.2 seconds
+* Interactive rendering: 60 FPS
 
 ---
 
@@ -358,60 +418,75 @@ Cholula, Mexico (5,097 nodes, 11,154 segments):
 
 ### Technology Stack
 
-Core:
-- CGAL 6.0: Computational geometry
-- pybind11: Python-C++ bindings
-- NumPy/Pandas: Data processing
+**Core:**
 
-Geospatial:
-- OSMnx: OpenStreetMap data access
-- GeoPandas: Spatial data handling
-- CGAL Spatial Indexing: High-performance spatial queries
-- SciPy Spatial: Fallback spatial indexing
+* **CGAL 6.0:** Computational geometry
+* **pybind11:** Python-C++ bindings
+* **NumPy/Pandas:** Data processing
 
-Visualization:
-- VisPy: GPU-accelerated rendering
-- PyQt5: Window management
+**Geospatial:**
+
+* **OSMnx:** OpenStreetMap data access
+* **GeoPandas:** Spatial data handling
+* **CGAL Spatial Indexing:** High-performance spatial queries
+* **SciPy Spatial:** Fallback spatial indexing
+
+**Visualization:**
+
+* **VisPy:** GPU-accelerated rendering
+* **PyQt5:** Window management
 
 ### Spatial Indexing Implementation
 
 The library uses **CGAL spatial indexing** for all spatial operations:
 
-- **CGAL Delaunay Triangulation**: High-performance spatial queries
-- **C++ Implementation**: Maximum performance for large datasets
-- **Consistent Architecture**: Same infrastructure as MapIndex
-- **Real-time Capable**: Optimized for interactive applications
+* **CGAL Delaunay Triangulation:** High-performance spatial queries.
+* **C++ Implementation:** Maximum performance for large datasets bypassing Python's GIL where possible.
+* **Consistent Architecture:** Same infrastructure as `MapIndex`.
+* **Real-time Capable:** Optimized for interactive applications.
 
-**Usage**: All spatial operations automatically use CGAL:
+**Usage:** All spatial operations automatically use CGAL under the hood:
+
 ```python
+from acj.algorithms.graph import _find_node_clusters
 # Uses CGAL Delaunay triangulation internally
-clusters = acj._find_node_clusters(coords, threshold)
-```
-
-### Project Structure
+clusters = _find_node_clusters(coords, threshold)
 
 ```
-acj/
-├── __init__.py          # Public API
-├── io.py                # Data loading
-├── map_index.py         # Spatial indexing
-├── graph.py             # Graph utilities
-├── render.py            # Visualization
-├── core/
-│   └── src/
-│       └── acj_core.cpp # CGAL bindings
-└── tests/
-    └── test_acj.py      # Test suite
 
-examples/
-├── example_acj.py       # Basic usage
-└── example_realtime.py  # Interactive demo
+### Project Structure (Clean Architecture)
 
-CMakeLists.txt           # Build configuration
-Dockerfile               # Container definition
-Makefile                 # Build automation
+Our repository follows a modern Python layout, separating source code, tests, and C++ extensions:
+
+```text
+acj_project/
+├── src/
+│   └── acj/
+│       ├── __init__.py          # Public API exports
+│       ├── algorithms/          # Core logic & math
+│       │   ├── graph.py         
+│       │   └── map_index.py     
+│       ├── data/                # Data manipulation
+│       │   └── io.py            
+│       ├── utils/               # Helpers & GUI
+│       │   └── render.py        
+│       └── core/                # C++ Source Code (Extension)
+│           ├── CMakeLists.txt
+│           └── src/
+│               └── acj_core.cpp # CGAL pybind11 bindings
+├── tests/
+│   └── test_acj.py              # Pytest suite
+├── examples/
+│   ├── example_acj.py           
+│   └── example_realtime.py      
+├── build/                       # Compiled C++ binaries (Generated)
+├── CMakeLists.txt               # Main CMake configuration
+├── pyproject.toml               # Python package metadata
+├── flake.nix                    # NixOS deterministic environment
+├── Dockerfile                   # Cross-platform container
+└── Makefile                     # Build automation shortcuts
+
 ```
-
 ---
 
 ## Development
@@ -419,56 +494,61 @@ Makefile                 # Build automation
 ### Running Tests
 
 ```bash
-# All tests
-make test
+# Run all tests (if using local venv or Nix)
+pytest tests/ -v
 
-# Specific test class
+# Run a specific test class via Docker
 docker run --user $(id -u):$(id -g) -v $(pwd):/workspace ubuntu-acj:1 \
-  sh -c "PYTHONPATH=/workspace/build pytest acj/tests/ -v -k TestMapIndex"
+  sh -c "PYTHONPATH=/workspace/build/src/acj/core:/workspace/src pytest tests/ -v -k TestMapIndex"
+
 ```
 
 Test coverage:
-- Graph data validation
-- OSMnx integration
-- CGAL spatial queries
-- Assignment correctness
-- Data preservation
+
+* Graph data validation
+* OSMnx integration
+* CGAL spatial queries
+* Assignment correctness
+* Data preservation
 
 ---
 
 ### Build Workflow
 
 ```bash
-# Rebuild after changes
+# Rebuild Docker container after changes
 make clean
 make build
 
-# Interactive debugging
+# Enter interactive debugging shell
 make shell-user
 
-# Inside container
-cd build && cmake .. && make
-PYTHONPATH=/workspace/build python3
->>> import acj
->>> graph = acj.load_map("Liechtenstein")
+# Inside container: compile C++ and test Python logic
+cd build && cmake .. && make -j$(nproc)
+export PYTHONPATH=/workspace/build/src/acj/core:/workspace/src
+
+python3
+>>> from acj.data.io import load_map
+>>> graph = load_map("Liechtenstein")
+
 ```
 
 ---
 
 ## Known Limitations
 
-1. Segment assignment not implemented: `assign_to_segments()` requires CGAL AABB tree implementation
-2. Coordinates must be projected: Latitude/longitude must be converted to metric system (UTM)
+1. **Segment assignment not implemented:** `assign_to_segments()` requires CGAL AABB tree implementation.
+2. **Coordinates must be projected:** Latitude/longitude must be converted to a metric system (e.g., UTM) before assignment.
 
 ---
 
 ## Planned Features
 
-- Point-to-segment assignment using AABB tree
-- Export visualizations to image/video
-- Temporal analysis support
-- Network-based distance calculation
-- Advanced graph simplification algorithms
+* Point-to-segment assignment using AABB tree
+* Export visualizations to image/video
+* Temporal analysis support
+* Network-based distance calculation
+* Advanced graph simplification algorithms
 
 ---
 
@@ -476,26 +556,30 @@ PYTHONPATH=/workspace/build python3
 
 ### Cannot connect to X server
 
-Enable X11 forwarding:
+Enable X11 forwarding for the visualization window:
+
 ```bash
 xhost +local:docker
 make example-realtime
+
 ```
 
 ### Module 'acj_core' not found
 
-Recompile C++ extension:
+Python cannot find your compiled C++ extension. Ensure you have compiled it and exported the correct path:
+
 ```bash
-make clean
-make build
+mkdir -p build && cd build
+cmake .. && make -j$(nproc)
+export PYTHONPATH=$(pwd)/src/acj/core:$PYTHONPATH
+
 ```
 
 ### City name not found
 
-- Verify internet connection
-- Check city name spelling (Nominatim format)
-- Try broader query (country name)
-
+* Verify your internet connection.
+* Check the city name spelling (Nominatim format).
+* Try a broader query (e.g., country name).
 
 ---
 
@@ -507,9 +591,11 @@ MIT License
 
 ## Contributing
 
-Issues and pull requests welcome. Please include tests with new features.
+Issues and pull requests are welcome. Please include tests with new features to maintain our coverage standards.
 
 **Acknowledgments:**
-- CGAL Project: Computational geometry library
-- OSMnx: OpenStreetMap data interface
-- VisPy: GPU-accelerated visualization framework
+
+* **CGAL Project:** Computational geometry library
+* **OSMnx:** OpenStreetMap data interface
+* **VisPy:** GPU-accelerated visualization framework
+
