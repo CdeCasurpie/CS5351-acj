@@ -25,7 +25,7 @@
 		libsForQt5.qtbase
         libGL
         libGLU
-        xorg.libX11
+        libX11
         stdenv.cc.cc.lib
       ];
 

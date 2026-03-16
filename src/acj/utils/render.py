@@ -5,8 +5,8 @@ This module provides a professional, interactive visualization tool for graph da
 and analysis results using pure VisPy with OpenGL acceleration.
 """
 
-from .io import GraphData
-from .map_index import MapIndex
+from acj.data.io import GraphData
+from acj.algorithms.map_index import MapIndex
 import pandas as pd
 from typing import Optional
 import numpy as np

@@ -8,7 +8,7 @@ on graph data using CGAL-based spatial indexing structures.
 import pandas as pd
 import numpy as np
 from typing import Tuple, Dict
-from .io import GraphData
+from acj.data.io import GraphData
 
 
 class MapIndex:

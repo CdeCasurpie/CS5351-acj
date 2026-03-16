@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 from collections import defaultdict, deque
 from typing import Dict, List, Tuple, Set
-from .io import GraphData
+from acj.data.io import GraphData
 
 
 def simplify_graph_topological(graph_data: GraphData) -> GraphData:
