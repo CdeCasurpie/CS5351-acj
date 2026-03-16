@@ -43,7 +43,7 @@ class TestGraphDataLoading:
 
         assert len(graph.nodes) == 3
         assert len(graph.segments) == 2
-        assert isinstance(graph, acj.io.GraphData)
+        assert isinstance(graph, acj.GraphData)
 
     def test_load_graph_missing_node_columns(self):
         """Test that loading fails with missing node columns."""

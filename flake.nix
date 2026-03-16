@@ -19,24 +19,33 @@
         gnumake
         cgal
         boost
-		python3
+        python3
         python3Packages.pip
         python3Packages.virtualenv
-		libsForQt5.qtbase
+        libsForQt5.qtbase
         libGL
         libGLU
-        libX11
+        libx11
+        fontconfig
         stdenv.cc.cc.lib
       ];
 
       shellHook = ''
-        echo "Entorno NixOS"
+        echo "Bienvenido al entorno NixOS de ACJ"
         
-        export LD_LIBRARY_PATH="${pkgs.libGL}/lib:${pkgs.libGLU}/lib:${pkgs.xorg.libX11}/lib:${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
+        # UNIFICAMOS EL LD_LIBRARY_PATH AQUÍ
+        export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath (with pkgs; [
+            stdenv.cc.cc.lib
+            libGL
+            libGLU
+            libx11
+            fontconfig
+        ])}:$LD_LIBRARY_PATH"
+        
         export QT_QPA_PLATFORM_PLUGIN_PATH="${pkgs.libsForQt5.qtbase.bin}/lib/qt-${pkgs.libsForQt5.qtbase.version}/plugins"
 
         if [ ! -d ".venv" ]; then
-          echo "📦 Creando entorno virtual local..."
+          echo " Creando entorno virtual local..."
           python -m venv .venv
         fi
         

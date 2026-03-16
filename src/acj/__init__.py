@@ -9,19 +9,21 @@ Main Components:
     - load_graph: Load graph data from pandas DataFrames
     - simplify_graph: Graph simplification utilities
     
-Author: Cèsar, Alejandro, Jeremy.
+Author: Cèsar, Alejandro, Jerimy.
 """
 
-from .map_index import MapIndex
-from .io import load_graph, load_map
-from .graph import simplify_graph, simplify_graph_topological, simplify_graph_geometric, simplify_graph_parallel_cgal
-from .render import render_graph, render_heatmap, render_comparison
+# Importaciones con las nuevas rutas de Clean Architecture
+from .algorithms.map_index import MapIndex
+from .data.io import load_graph, load_map, GraphData
+from .algorithms.graph import simplify_graph, simplify_graph_topological, simplify_graph_geometric, simplify_graph_parallel_cgal
+from .utils.render import render_graph, render_heatmap, render_comparison
 
 __version__ = "0.1.0"
 __all__ = [
     "MapIndex",
     "load_graph",
     "load_map",
+    "GraphData",
     "simplify_graph",
     "simplify_graph_topological",
     "simplify_graph_geometric",
