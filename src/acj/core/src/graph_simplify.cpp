@@ -1,186 +1,6 @@
-/*
- * ACJ Core - CGAL-based spatial indexing
- */
+#include "graph_simplify.hpp"
 
-#include <cmath>
-#include <limits>
-#include <vector>
-#include <map>
-#include <functional>
-#include <utility>
-#include <tuple>
-#include <set>
-#include <deque>
-#include <algorithm>
-#include <stdexcept>
-
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
-#include <pybind11/stl.h>
-
-#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
-#include <CGAL/Delaunay_triangulation_2.h>
-
-typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
-typedef CGAL::Delaunay_triangulation_2<K>                   DT;
-typedef K::Point_2                                          Point_pt;
-typedef K::Segment_2                                        Segment_k;
-typedef K::Vector_2                                         Vector_k;
-
-typedef std::tuple<long, long, long, Point_pt, Point_pt, Segment_k> SegmentInfo;
-
-
-namespace py = pybind11;
-
-typedef std::map<long, Point_pt> NodeCoordMap;
-typedef std::map<long, int> NodeDegreeMap;
-typedef std::map<long, std::vector<long>> AdjacencyMap;
-py::tuple match_point(
-    py::array_t<double, py::array::c_style | py::array::forcecast> query_points,
-    py::array_t<double, py::array::c_style | py::array::forcecast> target_points
-) {
-    if (query_points.ndim() != 2 || query_points.shape(1) != 2) {
-        throw std::runtime_error("query_points must be Nx2 array");
-    }
-    if (target_points.ndim() != 2 || target_points.shape(1) != 2) {
-        throw std::runtime_error("target_points must be Mx2 array");
-    }
-    size_t n_query = static_cast<size_t>(query_points.shape(0));
-    size_t n_target = static_cast<size_t>(target_points.shape(0));
-    const double* query_ptr = static_cast<const double*>(query_points.data());
-    const double* target_ptr = static_cast<const double*>(target_points.data());
-
-    std::vector<int> indices(n_query);
-    std::vector<double> distances(n_query);
-    DT dt;
-    std::map<Point_pt, int> point_index_map;
-
-    for (size_t j = 0; j < n_target; j++) {
-        Point_pt p(target_ptr[2*j], target_ptr[2*j + 1]);
-        dt.insert(p);
-        point_index_map[p] = static_cast<int>(j);
-    }
-    for (size_t i = 0; i < n_query; i++) {
-        Point_pt query(query_ptr[2*i], query_ptr[2*i + 1]);
-        auto nearest_vertex = dt.nearest_vertex(query);
-        double dx = query_ptr[2*i] - nearest_vertex->point().x();
-        double dy = query_ptr[2*i + 1] - nearest_vertex->point().y();
-        double distance = std::sqrt(dx*dx + dy*dy);
-        indices[i] = point_index_map[nearest_vertex->point()];
-        distances[i] = distance;
-    }
-    return py::make_tuple(py::cast(indices), py::cast(distances));
-}
-
-py::list find_clusters_cgal(
-     py::array_t<double, py::array::c_style | py::array::forcecast> points,
-     double threshold
- ) {
-     auto points_buf = points.request();
-     if (points_buf.ndim != 2 || points_buf.shape[1] != 2) {
-         throw std::runtime_error("points must be Nx2 array");
-     }
-     size_t n_points = static_cast<size_t>(points_buf.shape[0]);
-     if (n_points == 0) return py::list();
-     const double* points_ptr = static_cast<const double*>(points_buf.ptr);
-
-     DT dt;
-     std::map<Point_pt, int> point_index_map;
-     for (size_t i = 0; i < n_points; i++) {
-         Point_pt p(points_ptr[2*i], points_ptr[2*i + 1]);
-         dt.insert(p);
-         point_index_map[p] = static_cast<int>(i);
-     }
-
-     std::vector<int> parent(n_points);
-     for (size_t i = 0; i < n_points; i++) parent[i] = static_cast<int>(i);
-
-     std::function<int(int)> find;
-     find = [&parent, &find](int x) -> int {
-         if (parent[x] != x) parent[x] = find(parent[x]);
-         return parent[x];
-     };
-     auto union_sets = [&find, &parent](int x, int y) {
-         int px = find(x); int py = find(y);
-         if (px != py) parent[px] = py;
-     };
-
-    double threshold_sq = threshold * threshold;
-    for (auto it = dt.finite_edges_begin(); it != dt.finite_edges_end(); ++it) {
-        auto face = it->first;
-        int index = it->second;
-        
-        auto v1 = face->vertex((index + 1) % 3);
-        auto v2 = face->vertex((index + 2) % 3);
-
-        if (dt.is_infinite(v1) || dt.is_infinite(v2)) continue;
-
-         double dist_sq = CGAL::squared_distance(v1->point(), v2->point());
-         if (dist_sq <= threshold_sq) {
-             union_sets(point_index_map[v1->point()], point_index_map[v2->point()]);
-         }
-     }
-
-     std::map<int, std::vector<int>> clusters;
-     for (size_t i = 0; i < n_points; i++) {
-         clusters[find(static_cast<int>(i))].push_back(static_cast<int>(i));
-     }
-
-     py::list result;
-     for (const auto& cluster : clusters) {
-         result.append(py::cast(cluster.second));
-     }
-     return result;
- }
-
-py::tuple match_segment(
-    py::array_t<double, py::array::c_style | py::array::forcecast> query_points,
-    py::array_t<double, py::array::c_style | py::array::forcecast> segments
-) {
-    auto query_buf = query_points.request();
-    auto segments_buf = segments.request();
-    if (query_buf.ndim != 2 || query_buf.shape[1] != 2) {
-        throw std::runtime_error("query_points must be Nx2 array");
-    }
-    if (segments_buf.ndim != 2 || segments_buf.shape[1] != 4) {
-        throw std::runtime_error("segments must be Mx4 array");
-    }
-    size_t n_query = static_cast<size_t>(query_buf.shape[0]);
-    size_t n_segments = static_cast<size_t>(segments_buf.shape[0]);
-    const double* query_ptr = static_cast<const double*>(query_buf.ptr);
-    const double* segments_ptr = static_cast<const double*>(segments_buf.ptr);
-
-    std::vector<Segment_k> segment_geoms;
-    segment_geoms.reserve(n_segments);
-    for (size_t j = 0; j < n_segments; j++) {
-        Point_pt p1(segments_ptr[4*j],     segments_ptr[4*j + 1]);
-        Point_pt p2(segments_ptr[4*j + 2], segments_ptr[4*j + 3]);
-        segment_geoms.emplace_back(p1, p2);
-    }
-
-    std::vector<int> indices(n_query);
-    std::vector<double> distances(n_query);
-
-    for (size_t i = 0; i < n_query; i++) {
-        Point_pt query(query_ptr[2*i], query_ptr[2*i + 1]);
-        
-        double min_dist_sq = std::numeric_limits<double>::max();
-        int best_idx = 0;
-        
-        for (size_t j = 0; j < n_segments; j++) {
-            double dist_sq = CGAL::to_double(CGAL::squared_distance(query, segment_geoms[j]));
-            if (dist_sq < min_dist_sq) {
-                min_dist_sq = dist_sq;
-                best_idx = static_cast<int>(j);
-            }
-        }
-        
-        indices[i] = best_idx;
-        distances[i] = std::sqrt(min_dist_sq);
-    }
-
-    return py::make_tuple(py::cast(indices), py::cast(distances));
-}
+// ================= Helpers Internos =================
 
 std::set<std::pair<long, long>> trace_new_segments(
     const std::set<long>& intersection_ids,
@@ -295,6 +115,8 @@ void build_graph_structures(
     }
 }
 
+// ================= Algoritmos Principales =================
+
 py::tuple simplify_graph_topological_cgal(
     py::array_t<double> nodes,
     py::array_t<double> segments
@@ -330,6 +152,102 @@ py::tuple simplify_graph_topological_cgal(
         Point_pt p2 = node_map[id2];
         new_segments_list.emplace_back(new_segment_id++, id1, id2, p1.x(), p1.y(), p2.x(), p2.y());
     }
+    return py::make_tuple(py::cast(new_nodes_list), py::cast(new_segments_list));
+}
+
+py::tuple simplify_graph_minkowski_cgal(
+	py::array_t<double> nodes,
+	py::array_t<double> segments,
+	double radius
+){
+	NodeCoordMap node_map;
+	NodeDegreeMap node_degrees;
+	AdjacencyMap adjacency;
+	std::vector<SegmentInfo> segments_info_list;
+	build_graph_structures(nodes, segments, node_map, node_degrees, adjacency, segments_info_list);
+	Polygon_set_exact poly_set;
+	for (const auto& seg_info : segments_info_list) {
+        Point_pt p1 = std::get<3>(seg_info);
+        Point_pt p2 = std::get<4>(seg_info);
+
+        double dx = CGAL::to_double(p2.x() - p1.x());
+        double dy = CGAL::to_double(p2.y() - p1.y());
+        double len = std::sqrt(dx*dx + dy*dy);
+        if (len == 0) continue;
+
+        double nx = -dy / len * radius;
+        double ny = dx / len * radius;
+
+        Polygon_exact poly;
+        poly.push_back(Exact_K::Point_2(CGAL::to_double(p1.x()) + nx, CGAL::to_double(p1.y()) + ny));
+        poly.push_back(Exact_K::Point_2(CGAL::to_double(p2.x()) + nx, CGAL::to_double(p2.y()) + ny));
+        poly.push_back(Exact_K::Point_2(CGAL::to_double(p2.x()) - nx, CGAL::to_double(p2.y()) - ny));
+        poly.push_back(Exact_K::Point_2(CGAL::to_double(p1.x()) - nx, CGAL::to_double(p1.y()) - ny));
+
+        if (poly.is_simple()) {
+            if (poly.is_clockwise_oriented()) poly.reverse_orientation();
+            poly_set.join(poly);
+        }
+    }
+
+	std::vector<Polygon_with_holes_exact> res_polygons;
+    poly_set.polygons_with_holes(std::back_inserter(res_polygons));
+	std::vector<std::tuple<long, double, double>> new_nodes_list;
+    std::vector<std::tuple<long, long, long, double, double, double, double>> new_segments_list;
+
+    long node_id_counter = 0;
+    long segment_id_counter = 0;
+    std::map<Exact_K::Point_2, long> exact_node_map;
+
+	for (const auto& pwh : res_polygons) {
+        Exact_K exact_kernel;
+		Straight_skeleton_ptr ss = CGAL::create_interior_straight_skeleton_2(
+            pwh.outer_boundary().vertices_begin(),
+            pwh.outer_boundary().vertices_end(),
+            pwh.holes_begin(),
+            pwh.holes_end(),
+			exact_kernel
+        );
+        if (!ss) continue;
+
+        for (auto edge = ss->halfedges_begin(); edge != ss->halfedges_end(); ++edge)
+		{
+            if (!edge->is_bisector() || !edge->is_inner_bisector()) continue; 
+            
+            auto v1 = edge->vertex();
+            auto v2 = edge->opposite()->vertex();
+            
+            // Solo nos quedamos con el eje central puro, descartando las diagonales a las esquinas
+            if (!v1->is_skeleton() || !v2->is_skeleton()) continue;
+
+            Exact_K::Point_2 p1 = v1->point();
+            Exact_K::Point_2 p2 = v2->point();
+
+            long id1, id2;
+            if (exact_node_map.find(p1) == exact_node_map.end()) {
+                id1 = node_id_counter++;
+                exact_node_map[p1] = id1;
+                new_nodes_list.emplace_back(id1, CGAL::to_double(p1.x()), CGAL::to_double(p1.y()));
+            } else id1 = exact_node_map[p1];
+
+            if (exact_node_map.find(p2) == exact_node_map.end()) {
+                id2 = node_id_counter++;
+                exact_node_map[p2] = id2;
+                new_nodes_list.emplace_back(id2, CGAL::to_double(p2.x()), CGAL::to_double(p2.y()));
+            } else id2 = exact_node_map[p2];
+
+            // Usamos NUESTROS ids generados para evitar aristas duplicadas
+            if (id1 < id2) {
+                new_segments_list.emplace_back(
+                    segment_id_counter++, id1, id2,
+                    CGAL::to_double(p1.x()), CGAL::to_double(p1.y()),
+                    CGAL::to_double(p2.x()), CGAL::to_double(p2.y())
+                );
+				
+        	}   
+		}
+    }
+    
     return py::make_tuple(py::cast(new_nodes_list), py::cast(new_segments_list));
 }
 
@@ -566,32 +484,4 @@ py::tuple simplify_graph_parallel_cgal(
         );
     }
     return py::make_tuple(py::cast(new_nodes_list), py::cast(final_segments_list));
-}
-
-PYBIND11_MODULE(acj_core, m) {
-    m.doc() = "ACJ Core - CGAL-based spatial indexing & graph simplification";
-
-    m.def("match_point", &match_point,
-          "Encuentra el punto objetivo más cercano para cada punto de consulta.",
-          py::arg("query_points"), py::arg("target_points"));
-
-    m.def("find_clusters_cgal", &find_clusters_cgal,
-          "Encuentra clústeres de puntos dentro de un umbral (O(N log N)).",
-          py::arg("points"), py::arg("threshold"));
-
-    m.def("match_segment", &match_segment,
-          "Encuentra el segmento de línea más cercano para cada punto de consulta.",
-          py::arg("query_points"), py::arg("segments"));
-
-    m.def("simplify_graph_topological_cgal", &simplify_graph_topological_cgal,
-          "Simplifica un grafo eliminando nodos de grado 2 (C++).",
-          py::arg("nodes"), py::arg("segments"));
-
-    m.def("simplify_graph_geometric_cgal", &simplify_graph_geometric_cgal,
-          "Simplifica un grafo fusionando intersecciones cercanas (C++).",
-          py::arg("nodes"), py::arg("segments"), py::arg("threshold"));
-
-    m.def("simplify_graph_parallel_cgal", &simplify_graph_parallel_cgal,
-          "Simplifica un grafo fusionando segmentos paralelos (e.g., doble calzada) (C++).",
-          py::arg("nodes"), py::arg("segments"), py::arg("distance_threshold"), py::arg("angle_threshold_deg"));
 }

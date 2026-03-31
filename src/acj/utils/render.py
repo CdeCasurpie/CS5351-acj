@@ -147,7 +147,6 @@ class ACJVisualizer:
             self.nodes_visual.visible = self.visibility_state['nodes']
         elif event.key == 'l' or event.key == 'L':
             self.visibility_state['segments'] = not self.visibility_state['segments']
-            # --- BUG FIX: AÑADIR ESTA LÍNEA PARA QUE EL CAMBIO SEA VISIBLE ---
             self.segments_visual.visible = self.visibility_state['segments']
         elif event.key == 'g' or event.key == 'G':
             self.visibility_state['grid'] = not self.visibility_state['grid']

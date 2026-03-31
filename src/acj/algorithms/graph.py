@@ -10,7 +10,7 @@ import numpy as np
 from collections import defaultdict, deque
 from typing import Dict, List, Tuple, Set
 from acj.data.io import GraphData
-
+from acj.algorithms.minkowski import simplify_graph_minkowski
 
 def simplify_graph_topological(graph_data: GraphData) -> GraphData:
     """
@@ -262,9 +262,19 @@ def _find_node_clusters(coords: np.ndarray, threshold: float) -> List[List[int]]
         List of clusters, where each cluster is a list of node indices
     """
     try:
+        import sys
+        import os
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        build_root = os.path.join(project_root, 'build')
+        build_core = os.path.join(build_root, 'src', 'acj', 'core')
+        
+        for path in [build_root, build_core]:
+            if os.path.exists(path) and path not in sys.path:
+                sys.path.insert(0, path)
+                
         import acj_core
-    except ImportError:
-        raise ImportError("CGAL core module not available. Compile the extension first.")
+    except ImportError as e:
+        raise ImportError("CGAL core module not available. Compile the extension first.") from e
     
     n_nodes = len(coords)
     if n_nodes == 0:
@@ -396,19 +406,12 @@ def simplify_graph(graph_data: GraphData, threshold_meters: float = 10.0, method
     
     Args:
         graph_data: GraphData object to simplify
-        threshold_meters: Distance threshold for merging nodes (in meters)
-                        - threshold_meters = 0: Only topological simplification
-                        - threshold_meters > 0: Geometric simplification
+        threshold_meters: Distance threshold for merging nodes (in meters), 
+                          or 'radius' if using minkowski method.
+        method: The simplification method to use ('auto', 'topological', 'geometric', 'parallel', 'minkowski')
     
     Returns:
-        GraphData object with simplified graph
-    
-    Example:
-        >>> graph = acj.load_graph(nodes_df, segments_df)
-        >>> # Topological only
-        >>> simplified = acj.simplify_graph(graph, threshold_meters=0)
-        >>> # Geometric with 15m threshold
-        >>> simplified = acj.simplify_graph(graph, threshold_meters=15.0)
+        GraphData object with simplified graph 
     """
     if method == 'topological' or (method == 'auto' and threshold_meters <= 0):
         return simplify_graph_topological(graph_data)
@@ -416,4 +419,6 @@ def simplify_graph(graph_data: GraphData, threshold_meters: float = 10.0, method
         return simplify_graph_geometric(graph_data, threshold_meters)
     elif method == 'parallel':
         return simplify_graph_parallel_cgal(graph_data.nodes, graph_data.segments, threshold_meters)
+    elif method == 'minkowski':
+        return simplify_graph_minkowski(graph_data,radius= threshold_meters);
     return graph_data

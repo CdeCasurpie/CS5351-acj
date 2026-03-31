@@ -1,4 +1,4 @@
-.PHONY: build shell shell-user test example example-realtime example-simplification example-simplification-visual example-crime example-crime-osm example-simplification-osm clean clean-all help
+.PHONY: build shell shell-user test example example-realtime example-simplification example-simplification-visual example-crime example-crime-osm example-simplification-osm example-minkowski-osm clean clean-all help
 
 .DEFAULT_GOAL := help
 
@@ -18,6 +18,7 @@ help:
 	@echo "Examples with real OSM data (configurable city):"
 	@echo "  make example-realtime                  - Real-time crime heatmap"
 	@echo "  make example-simplification            - Graph simplification comparison"
+	@echo "  make example-minkowski-osm       		- Minkowski simplification (configurable location)"
 	@echo "  make example-crime-osm                 - Crime heatmap (configurable location)"
 	@echo "  make example-simplification-osm        - Simplification (configurable location)"
 	@echo ""
@@ -64,6 +65,10 @@ example-crime-osm: ## Run crime heatmap with real OSM data (configurable locatio
 
 example-simplification-osm: ## Run simplification comparison with real OSM data (configurable location)
 	docker run --user $(shell id -u):$(shell id -g) -v $(shell pwd):/workspace -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=$$DISPLAY ubuntu-acj:1 sh -c "cd /workspace && mkdir -p build && cd build && cmake .. && make -j\$$(nproc) && cd .. && PYTHONPATH=/workspace/build:/workspace/src python3 examples/example_simplification_osm.py"
+
+example-minkowski-osm: ## Run Minkowski simplification with real OSM data (configurable location)
+	docker run --user $(shell id -u):$(shell id -g) -v $(shell pwd):/workspace -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=$$DISPLAY ubuntu-acj:1 sh -c "cd /workspace && mkdir -p build && cd build && cmake .. && make -j\$$(nproc) && cd .. && PYTHONPATH=/workspace/build:/workspace/src python3 examples/example_minkowski_osm.py"
+
 
 # Cleanup
 clean: ## Clean build artifacts
