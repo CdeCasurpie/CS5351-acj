@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -e
+if [[ ! -d "/home/jerimy/dev/university/UTEC/tesis/CS5351-Aceleracion-de-mapas-y-construcci-n-de-grafos" ]]; then
+  echo "Cannot find source directory; Did you move it?"
+  echo "(Looking for "/home/jerimy/dev/university/UTEC/tesis/CS5351-Aceleracion-de-mapas-y-construcci-n-de-grafos")"
+  echo 'Cannot force reload with this script - use "direnv reload" manually and then try again'
+  exit 1
+fi
+
+# rebuild the cache forcefully
+_nix_direnv_force_reload=1 direnv exec "/home/jerimy/dev/university/UTEC/tesis/CS5351-Aceleracion-de-mapas-y-construcci-n-de-grafos" true
+
+# Update the mtime for .envrc.
+# This will cause direnv to reload again - but without re-building.
+touch "/home/jerimy/dev/university/UTEC/tesis/CS5351-Aceleracion-de-mapas-y-construcci-n-de-grafos/.envrc"
+
+# Also update the timestamp of whatever profile_rc we have.
+# This makes sure that we know we are up to date.
+touch -r "/home/jerimy/dev/university/UTEC/tesis/CS5351-Aceleracion-de-mapas-y-construcci-n-de-grafos/.envrc" "/home/jerimy/dev/university/UTEC/tesis/CS5351-Aceleracion-de-mapas-y-construcci-n-de-grafos/.direnv"/*.rc
