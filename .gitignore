@@ -47,6 +47,7 @@ cache/
 output/
 *.tar.xz
 
-# NixOs
+# NixOs / direnv
+.direnv/
 .venv/
 .envrc
