@@ -1,0 +1,145 @@
+\chapter{Fundamentos Teóricos}
+
+El presente capítulo expone el marco teórico y matemático que sustenta las dos contribuciones principales de esta investigación: la ingestión espacial eficiente de datos masivos y el desarrollo de un algoritmo de simplificación adaptativa para redes viales urbanas. Inicialmente, se formalizan las redes de transporte desde la perspectiva de la teoría de grafos y la geometría computacional. Posteriormente, se abordan los fundamentos de la asignación espacial y las estructuras de indexación geométrica las cuales constituyen el núcleo teórico para la carga rápida de bases de datos espaciales. Finalmente, se analizan los algoritmos de generalización de líneas y se deducen formalmente las métricas de invarianza estructural empleadas para evaluar la calidad topológica de la red resultante.
+
+% =====================================================================
+\section{Teoría de Grafos y Redes Espaciales Urbanas}
+% =====================================================================
+
+El modelado computacional de la infraestructura vial de una ciudad requiere abstraer elementos físicos continuos como avenidas, calles y autopistas en estructuras de datos discretas que permitan el análisis de rutas y la gestión de bases de datos geoespaciales. Esta sección introduce la formalización abstracta de las redes urbanas y detalla las restricciones geométricas y topológicas implícitas en los sistemas viales modernos.
+
+\subsection{Formalización del Grafo Vial Embebido}
+
+Para comprender la complejidad de las redes viales, es necesario establecer la distinción fundamental entre un grafo abstracto o tradicional y un grafo espacialmente embebido en el plano.
+
+Un grafo abstracto se define formalmente como un par ordenado $G = (V, E)$, donde $V$ es un conjunto finito de vértices o nodos, y $E \subseteq V \times V$ es un conjunto de aristas que representan relaciones binarias lógicas entre dichos nodos. En este tipo de estructura de datos pura, el interés radica únicamente en la conectividad. Conceptos como la distancia métrica, la curvatura, la orientación o la posición geográfica no existen en la definición formal de un grafo abstracto.
+
+Por el contrario, un grafo espacialmente embebido es una estructura donde la conectividad lógica está intrínsecamente ligada a un espacio geométrico continuo, típicamente el plano euclidiano $\mathbb{R}^2$. En el contexto vial, este formalismo se expande mediante dos funciones de mapeo esenciales:
+
+\begin{enumerate}
+    \item \textbf{Mapeo de Vértices ($\mathcal{C}$):} Asigna a cada nodo una posición espacial explícita mediante un vector de coordenadas cartesianas proyectadas:
+    \begin{equation}
+    \mathcal{C}: V \rightarrow \mathbb{R}^2 \quad \text{donde} \quad \mathcal{C}(v_i) = (x_i, y_i)
+    \end{equation}
+    
+    \item \textbf{Mapeo de Aristas ($\mathcal{G}$):} A diferencia de un grafo abstracto donde una arista es un par ordenado ideal, en una red espacial cada arista $e \in E$ está ligada a un soporte geométrico continuo conocido como polyline o LineString. Este soporte se define como una secuencia ordenada de $k$ puntos de forma en el plano:
+    \begin{equation}
+    \mathcal{G}(e) = \langle p_1, p_2, \dots, p_k \rangle \quad \text{con} \quad p_m \in \mathbb{R}^2
+    \end{equation}
+    donde el primer punto $p_1$ coincide con la posición del nodo origen $\mathcal{C}(v_i)$ y el último punto $p_k$ corresponde al nodo destino $\mathcal{C}(v_j)$.
+\end{enumerate}
+
+Adicionalmente, los grafos lineales puros asumen una propiedad de planariedad estricta, es decir, donde dos aristas no pueden cruzarse en el plano sin intersectar sus vértices. Sin embargo, las redes viales reales se catalogan como grafos espaciales no-planares. La presencia de infraestructuras multinivel, tales como puentes elevados, pasos a desnivel y túneles, implica la existencia de aristas cuyos soportes geométricos $\mathcal{G}(e_1)$ y $\mathcal{G}(e_2)$ se cruzan en la proyección bidimensional $\mathbb{R}^2$ pero no comparten un nodo real de articulación vial en el espacio tridimensional.
+
+Para capturar con total fidelidad el comportamiento del tránsito vehicular y la morfología urbana, un grafo embebido simple resulta insuficiente. Esta investigación formaliza la red urbana como un \textbf{Multigrafo Dirigido Espacial} (Spatial MultiDiGraph). La elección de este modelo matemático específico responde a dos variables críticas:
+
+\begin{itemize}
+    \item \textbf{Direccionalidad (Grafo Dirigido):} El flujo vehicular está restringido por leyes de tránsito. Si una vía es de un solo sentido, la arista posee una orientación estricta $(v_i, v_j)$. Si la vía es de doble sentido, se modela mediante dos aristas independientes con orientaciones opuestas: $e_1 = (v_i, v_j)$ y $e_2 = (v_j, v_i)$.
+    \item \textbf{Multiplicidad (Multigrafo):} Existen escenarios urbanos donde dos intersecciones contiguas están conectadas por más de una infraestructura vial independiente (por ejemplo, una calzada central expresa y una calzada lateral de servicio que corren en paralelo). Un multigrafo permite la existencia de aristas paralelas compartiendo los mismos nodos extremos, diferenciándose mediante un identificador único (\textit{edge id}).
+\end{itemize}
+
+Formalmente, el Multigrafo Dirigido Espacial se define mediante la tupla:
+
+\begin{equation}
+G = (V, E, \Psi, \mathcal{C}, \mathcal{G})
+\end{equation}
+
+Donde $V$ es el conjunto de intersecciones, $E$ es el conjunto de segmentos viales, y $\Psi: E \rightarrow V \times V \times \mathbb{N}$ es una función de incidencia que asocia cada arista a un par ordenado de vértices junto con un índice único que resuelve la multiplicidad. 
+
+Finalmente, para asegurar que los cálculos de longitudes y distancias euclidianas directas sean matemáticamente consistentes a lo largo de la tesis, todas las coordenadas geodésicas originales (latitud, longitud) se transforman mediante una proyección conforme al plano. Se adopta el sistema de proyección Web Mercator (EPSG:3857), el cual preserva los ángulos locales y traduce las posiciones a coordenadas cartesianas expresadas en metros lineales. Bajo este sistema, la distancia métrica elemental entre dos puntos de forma $p_1=(x_1, y_1)$ y $p_2=(x_2, y_2)$ pertenecientes a una calle se computa estrictamente mediante la norma euclidiana:
+
+\begin{equation}
+d(p_1, p_2) = \| p_2 - p_1 \| = \sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}
+\end{equation}
+
+\subsection{Propiedades Topológicas de Redes No Planares y Grados de Conectividad}
+% PREGUNTAS A RESPONDER:
+% 1. ¿Por qué una ciudad moderna es un grafo "no planar" (túneles, puentes)?
+% 2. ¿Qué significa el "grado" de un nodo en el contexto vial?
+% 3. ¿Cuál es la diferencia crítica entre un "nodo ancla" (intersección real) y un "nodo intersticial" (grado de entrada 1 y salida 1)?
+%
+% QUÉ ESCRIBIR:
+% Formaliza el cálculo de in_degree y out_degree. Justifica que los nodos de grado 2 son ruido topológico introducido por el muestreo de los sistemas GPS u OpenStreetMap, y son el objetivo principal de la simplificación.
+
+
+% =====================================================================
+\section{Asignación Espacial e Indexación Geométrica (Map Matching)}
+% =====================================================================
+
+\subsection{Formalización del Problema de Proyección de Eventos}
+% PREGUNTAS A RESPONDER:
+% 1. ¿Por qué asignar un evento (ej. accidente) al "nodo más cercano" genera un sesgo analítico grave?
+% 2. ¿Cómo se define matemáticamente la proyección ortogonal de un punto sobre un segmento de recta?
+%
+% QUÉ ESCRIBIR:
+% Incluye la ecuación de minimización de distancia euclidiana entre un punto p y un segmento de arista s_e.
+% Fórmula sugerida: e^* = \arg\min_{e \in E} \left( \inf_{q \in s_e} \| p - q \| \right)
+
+\subsection{Estructuras de Datos de Particionamiento Espacial: de R-Trees a Árboles AABB}
+% PREGUNTAS A RESPONDER:
+% 1. ¿Por qué iterar sobre todas las calles de una ciudad para encontrar la más cercana (O(N*M)) es computacionalmente inviable?
+% 2. ¿Cómo particiona el espacio un AABB Tree (Axis-Aligned Bounding Box) para acelerar la búsqueda a tiempo logarítmico?
+%
+% QUÉ ESCRIBIR:
+% Describe la jerarquía de cajas delimitadoras. Justifica teóricamente la elección de CGAL y C++ en tu implementación para superar los cuellos de botella de las librerías estándar de Python.
+
+
+% =====================================================================
+\section{Geometría Computacional y Particionamiento Dual}
+% =====================================================================
+
+\subsection{Triangulación de Delaunay y Celdas de Voronoi}
+% PREGUNTAS A RESPONDER:
+% 1. ¿Qué es la Triangulación de Delaunay y cuál es su relación dual con el Diagrama de Voronoi?
+% 2. ¿Por qué el área de una celda de Voronoi es un indicador perfecto de la "densidad urbana" local?
+%
+% QUÉ ESCRIBIR:
+% Define el polígono de Voronoi. Explica que usarás su área (calculada con la Shoelace Formula) para gobernar dinámicamente la agresividad del algoritmo de simplificación, evitando deformar zonas densas (centro histórico) y comprimiendo agresivamente zonas dispersas (periferia).
+
+\subsection{El Algoritmo de Simplificación de Douglas-Peucker}
+% PREGUNTAS A RESPONDER:
+% 1. ¿Cuál es la lógica recursiva del algoritmo estándar de Douglas-Peucker (DP)?
+% 2. ¿Cuál es el gran defecto de aplicar DP "a ciegas" sobre una red urbana compleja?
+%
+% QUÉ ESCRIBIR:
+% Explica el concepto de la distancia perpendicular máxima y el umbral épsilon. Remata la sección advirtiendo que el DP no entiende de topología, lo que puede causar que calles simplificadas se crucen sobre edificios o avenidas adyacentes.
+
+
+% =====================================================================
+\section{Preservación Topológica e Invarianza de Redes}
+% =====================================================================
+
+\subsection{Contracción Homotópica y Eliminación de Grado 2}
+% PREGUNTAS A RESPONDER:
+% 1. ¿Cómo se empaquetan múltiples aristas consecutivas en una sola macro-arista sin perder la geometría original?
+% 2. ¿Qué beneficios trae esta contracción a los algoritmos clásicos como Dijkstra o A*?
+%
+% QUÉ ESCRIBIR:
+% Detalla el Motor Topológico. Al absorber nodos de grado 2, reduces la matriz de adyacencia drásticamente, lo que acelera cualquier análisis posterior sin alterar las posibles rutas lógicas del sistema.
+
+\subsection{Colisiones Geométricas e Inversión de Autocruzamientos}
+% PREGUNTAS A RESPONDER:
+% 1. ¿Cómo podemos garantizar que la simplificación geométrica no genere intersecciones que no existen en la realidad?
+% 2. ¿Cómo actúa el AABB tree como "guardián" durante el proceso de simplificación?
+%
+% QUÉ ESCRIBIR:
+% Esta es tu gran aportación técnica. Explica que antes de aceptar un nuevo segmento simplificado, consultas al AABB Tree. Si hay más de 2 intersecciones detectadas, se rechaza la simplificación para preservar la "invarianza topológica" (no crear calles fantasma).
+
+
+% =====================================================================
+\section{Métricas Formales de Evaluación Estructural}
+% =====================================================================
+
+\subsection{Ratio de Compresión Topológica y Volumétrica}
+% PREGUNTAS A RESPONDER:
+% 1. ¿Qué fórmula define el éxito de nuestra contracción de nodos?
+%
+% QUÉ ESCRIBIR:
+% Escribe la métrica: RC_V = 1 - (|V_simp| / |V_raw|). Explica que evaluarás el rendimiento en memoria RAM y velocidad de procesamiento.
+
+\subsection{Error de Invarianza de Longitud y Distorsión Métrica}
+% PREGUNTAS A RESPONDER:
+% 1. ¿Cuánta precisión kilométrica perdemos a cambio de ganar velocidad computacional?
+%
+% QUÉ ESCRIBIR:
+% Define la sumatoria de longitudes de las aristas simplificadas vs originales (\Delta L). Justifica que un pequeño error fraccionario es un intercambio aceptable (trade-off) por lograr una escalabilidad masiva.

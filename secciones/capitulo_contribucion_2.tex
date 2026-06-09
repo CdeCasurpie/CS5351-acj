@@ -1,0 +1,17 @@
+%% ============================================================================
+%% CAPÍTULO 5: EL MAP MATCHING Y EL ÍNDICE ESPACIAL
+%% ============================================================================
+\chapter{Contribución II: Introducción de un índice espacial para la ingestión eficiente de Dataframes}
+
+\section{El Problema de Asignación Espacial a Gran Escala}
+% GUÍA: Explicar el problema del "vecino más cercano" aplicado a crímenes (ej. un delincuente escapando entre esquinas) y por qué las búsquedas lineales o en grafos crudos fallan.
+
+\section{Diseño del Índice Espacial mediante Geometría Computacional}
+% GUÍA: Explicar el uso de la librería CGAL en C++ para particionamiento espacial. 
+% Detallar la implementación basada en diagramas de Voronoi y Árboles K-D para búsquedas en tiempo logarítmico.
+
+\section{Ingestión Eficiente de DataFrames}
+% GUÍA: Cómo el algoritmo procesa miles de coordenadas GPS (DataFrames de crímenes) en bloque, minimizando el cuello de botella entre memoria y CPU.
+
+\section{Análisis de Complejidad Computacional}
+% GUÍA: Demostración teórica de la mejora en la notación Big-O (Ej. de O(N*M) a O(N log M)) gracias al índice espacial estructurado.

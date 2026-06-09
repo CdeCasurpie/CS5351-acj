@@ -1,0 +1,45 @@
+\chapter{Trabajos Relacionados (Estado del Arte)}
+
+El procesamiento y simplificación de redes viales urbanas es un desafío fundamental en la geomática, la simulación de tráfico y el análisis espacial. Los datos crudos, provenientes de fuentes colaborativas como OpenStreetMap (OSM), están modelados para la navegación y el transporte, presentando un exceso de detalles geométricos que dificultan el análisis de la morfología urbana y elevan los costos computacionales. Este capítulo revisa la literatura y las herramientas actuales dedicadas a la simplificación de grafos viales y el \textit{map matching}, identificando las brechas metodológicas que motivan el desarrollo de la presente investigación.
+
+\section{Sistemas y Algoritmos Existentes de Simplificación}
+
+La literatura reciente ha identificado que el uso directo de grafos espaciales sobreestima masivamente la cantidad de intersecciones urbanas. Boeing (2024) evidencia este problema conocido como el \textit{Street Intersection Miscount Problem}, señalando que los nodos intersticiales, vías divididas y rotondas arruinan las métricas analíticas.
+
+Para abordar este problema, han surgido diversas herramientas e implementaciones algorítmicas, las cuales se pueden categorizar por su enfoque:
+
+\subsection{Enfoques Heurísticos y Geométricos (OSMnx y Cityseer)}
+La herramienta más estandarizada es OSMnx, la cual implementa una solución en dos fases descrita por Boeing (2024): una simplificación topológica estricta seguida de una consolidación geométrica mediante agrupación espacial, conocida como \textit{clustering} y \textit{buffers}. Aunque limpia las curvas, su enfoque de consolidación geométrica depende de radios estáticos heurísticos. Si el umbral no está perfectamente calibrado, este método deforma la geometría de la intersección o colapsa nodos incorrectos. Herramientas similares como Cityseer aplican limpiezas iterativas y deduplicación, pero siguen sufriendo en geometrías complejas.
+
+\subsection{Enfoques Adaptativos (NeatNet y Flujos Autoadaptativos)}
+Buscando superar la rigidez de los umbrales fijos, Fleischmann et al. (2025) presentan NeatNet, un algoritmo adaptativo que clasifica artefactos viales mediante tipologías de contigüidad y aplica estrategias como esqueletos de Voronoi para simplificar geometrías complejas. Sus evaluaciones demuestran que NeatNet supera a OSMnx y Cityseer al replicar con mayor fidelidad simplificaciones manuales. De manera paralela, Zhao et al. (2025) proponen un flujo de trabajo autoadaptativo basado en grafos bipartitos que detecta ciclos y circularidad geométrica para eliminar duplicidades (de 31.2\% a 3.6\%) sin depender de umbrales rígidos. Sin embargo, ambos métodos heurísticos presentan fallas críticas en vías multicarril complejas y su costo computacional pésimo, llegando a ser $\mathcal{O}(N^3)$ en fases iniciales, limita severamente su escalabilidad.
+
+\subsection{Enfoques de Preservación Topológica}
+Desde la perspectiva del rendimiento computacional, Pung et al. (2022) demuestran que es posible reducir el tamaño de la red en un 50\% eliminando puntos muertos, bucles y paralelismos, manteniendo correlaciones casi perfectas (hasta 0.998) en métricas de centralidad. Por otro lado, orientados a la simulación masiva, Meng et al. (2022) proponen la herramienta TSMM para el simulador SUMO. TSMM abandona las métricas puramente visuales y utiliza métodos de \textit{buffer} para fusionar calzadas dobles junto con búsquedas en anchura para garantizar la conectividad de la red, logrando procesar redes a gran escala en apenas 21 segundos y evitando bloqueos, conocidos como \textit{deadlocks}.
+
+\subsection{Trade-off Geometría vs. Topología}
+El conflicto central de todas estas herramientas es analizado profundamente por Salinas et al. (2024), quienes evalúan algoritmos de ordenamiento de vértices mediante metodologías visuales. Los autores concluyen que los enfoques puramente geométricos unen calles físicamente cercanas pero sin conexión real, mientras que los enfoques topológicos unen puntos distantes ignorando la disposición física. Su estudio revela que las métricas numéricas tradicionales no logran capturar la pérdida de estructura espacial, subrayando la falta de un enfoque híbrido universal.
+
+\section{Algoritmos Existentes de Map Matching}
+
+El \textit{map matching} es el proceso de alinear trayectorias ruidosas de GPS sobre un grafo vial estructurado. La eficiencia y precisión de estos algoritmos dependen directamente de la calidad topológica de los grafos obtenidos en la fase de simplificación. Entre los motores más relevantes destacan:
+
+\begin{itemize}
+    \item \textbf{Open Source Routing Machine (OSRM):} Orientado a alto rendimiento, utiliza algoritmos de contracción de jerarquías. Es extremadamente veloz, pero altamente sensible a redes no simplificadas, donde las dobles calzadas sin consolidar generan desvíos irreales.
+    
+    \item \textbf{Valhalla:} Motor de enrutamiento basado en teselas, ideal para entornos dinámicos. Exige grafos topológicamente limpios para que sus heurísticas de enrutamiento multimodal no fallen en intersecciones complejas.
+    
+    \item \textbf{Fast Map Matching (FMM):} Framework optimizado que implementa Modelos Ocultos de Markov. Aunque representa el estado del arte en velocidad de \textit{matching}, FMM sufre degradación de precisión si el grafo de entrada presenta ``espinas'' geométricas o ramificaciones falsas, artefactos comúnmente dejados por herramientas de simplificación morfológica mal calibradas.
+\end{itemize}
+
+\section{Limitaciones del Estado del Arte y Justificación de la Propuesta}
+A partir de la revisión exhaustiva de la literatura, se identifican dos limitaciones críticas que la presente tesis busca resolver:
+
+\textbf{1. Carencia de un Pipeline de Evaluación Estandarizado:}
+Como señalan Salinas et al. (2024), las métricas tabulares clásicas no explican si un algoritmo preserva realmente la estructura urbana. En la actualidad, evaluar comparativamente si OSMnx es superior a NeatNet o Cityseer es complejo debido a la falta de entornos de prueba unificados. Esto justifica el diseño e implementación del \textit{BaseEvaluator} propuesto en esta investigación: una infraestructura experimental que permite perfilar rendimiento, medir reducción de complejidad y generar diagnósticos visuales interactivos para comparar distintos métodos bajo condiciones estandarizadas.
+
+\textbf{2. Fragilidad Heurística y Generación de Artefactos:}
+Las librerías analizadas presentan deficiencias estructurales: las heurísticas geométricas colapsan intersecciones de manera errónea (Boeing, 2024), las reglas adaptativas generan falsos positivos (Fleischmann et al., 2025), y los métodos analíticos puros (como \textit{Straight Skeleton} o Sumas de Minkowski) sufren de alto costo computacional y riesgo de pérdida topológica.
+
+\textbf{El Algoritmo Propuesto (Motor de Simplificación ACJ):}
+Para resolver estas brechas, tras iterar sobre múltiples enfoques geométricos, esta tesis propone un marco algorítmico híbrido y adaptativo. La solución final consolida un enfoque en dos fases para garantizar un equilibrio óptimo entre compresión de datos y precisión topológica. En primer lugar, se implementa un filtro topológico-vectorial que evalúa las desviaciones angulares (mediante productos punto) para evitar la eliminación de curvas críticas, empaquetando la geometría de manera segura. En segundo lugar, se aplica una simplificación dinámica utilizando el algoritmo de Douglas-Peucker, donde la tolerancia ($\epsilon$) se calcula en tiempo real basándose en el área local de diagramas de Voronoi. Para garantizar la integridad de la red, este proceso está respaldado por índices espaciales (R-Trees) que previenen colisiones geométricas. Este enfoque ofrece un grafo computacionalmente ligero y topológicamente fiel, idóneo para procesos de \textit{map matching} masivo.

@@ -1,0 +1,23 @@
+%% ============================================================================
+%% CAPÍTULO 4: LA ARQUITECTURA Y EL FRAMEWORK
+%% ============================================================================
+\chapter{Contribución I: Diseño de un Framework Open-Source y Pipeline de Evaluación}
+
+\section{Diseño Arquitectónico y Clean Architecture}
+% GUÍA: Explicar la separación de responsabilidades. Cómo el núcleo matemático en C++ está aislado de la capa de presentación/evaluación en Python.
+
+\section{Integración de Tecnologías e Interfaz de Usuario}
+% GUÍA: Explicar el uso de pybind11 y la distribución de la librería (ej. empaquetamiento para PIP), enfocándose en la usabilidad para el investigador final.
+
+\section{Pipeline de Evaluación Estandarizado}
+% GUÍA: Presentar la arquitectura del evaluador universal. Cómo permite inyectar grafos procesados por distintas librerías (OSMnx, NeatNet, ACJ) para someterlos a las mismas pruebas rigurosas.
+
+\section{Formulación de Métricas Propias de Evaluación}
+% GUÍA: ¡AQUÍ VA TU GRAN APORTE! Explicar que la librería no solo ejecuta, sino que provee métricas científicas nuevas/estandarizadas:
+\subsection{Métricas de Simplificación de Grafos}
+% - Ratio de Compresión Topológica ($|V_{simp}| / |V_{raw}|$).
+% - Error de Invarianza de Longitud de Aristas ($\Delta L / L_{raw}$).
+% - Detección de Artefactos (Cristalización).
+\subsection{Métricas de Ingestión y Map Matching}
+% - Velocidad de asignación (Eventos procesados por segundo).
+% - Precisión de proyección (Distancia euclidiana de error al asignar un crimen a la calle).
