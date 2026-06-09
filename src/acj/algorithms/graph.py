@@ -397,6 +397,50 @@ def simplify_graph_parallel_cgal(nodes_df: pd.DataFrame, segments_df: pd.DataFra
     
     return GraphData(pd.DataFrame(final_nodes), pd.DataFrame(final_segments))
 
+def simplify_graph_guided_minkowski(graph: GraphData, radius: float = 5.0) -> GraphData:
+    """
+    Simplificación avanzada: Minkowski + Straight Skeleton + Poda Guiada por Topología.
+    Utiliza el grafo original como ground-truth para eliminar la cristalización.
+    """
+    try:
+        import acj_core 
+    except ImportError as e:
+        raise ImportError("CGAL core module not available. Compile the extension first.") from e
+
+    nodes_x = graph.nodes['x'].to_numpy(dtype='float64')
+    nodes_y = graph.nodes['y'].to_numpy(dtype='float64')
+    
+    seg_start = graph.segments['node_start'].to_numpy(dtype='int64')
+    seg_end = graph.segments['node_end'].to_numpy(dtype='int64')
+    
+    new_nodes_x, new_nodes_y, new_seg_start, new_seg_end = acj_core.minkowski_guided_simplify(
+        nodes_x, nodes_y, seg_start, seg_end, radius
+    )
+    
+    new_nodes = pd.DataFrame({
+        'node_id': range(len(new_nodes_x)),
+        'x': new_nodes_x,
+        'y': new_nodes_y
+    })
+    
+    x1_coords = new_nodes_x[new_seg_start]
+    y1_coords = new_nodes_y[new_seg_start]
+    x2_coords = new_nodes_x[new_seg_end]
+    y2_coords = new_nodes_y[new_seg_end]
+
+    new_segments = pd.DataFrame({
+        'segment_id': range(len(new_seg_start)),
+        'node_start': new_seg_start,
+        'node_end': new_seg_end,
+        'x1': x1_coords,
+        'y1': y1_coords,
+        'x2': x2_coords,
+        'y2': y2_coords
+    })
+    
+    return GraphData(new_nodes, new_segments)
+
+
 def simplify_graph(graph_data: GraphData, threshold_meters: float = 10.0, method: str = 'auto') -> GraphData:
     """
     Simplify a graph using the most appropriate method based on threshold.
@@ -407,8 +451,8 @@ def simplify_graph(graph_data: GraphData, threshold_meters: float = 10.0, method
     Args:
         graph_data: GraphData object to simplify
         threshold_meters: Distance threshold for merging nodes (in meters), 
-                          or 'radius' if using minkowski method.
-        method: The simplification method to use ('auto', 'topological', 'geometric', 'parallel', 'minkowski')
+                          or 'radius' if using minkowski methods.
+        method: The simplification method to use ('auto', 'topological', 'geometric', 'parallel', 'minkowski', 'guided_minkowski')
     
     Returns:
         GraphData object with simplified graph 
@@ -420,5 +464,8 @@ def simplify_graph(graph_data: GraphData, threshold_meters: float = 10.0, method
     elif method == 'parallel':
         return simplify_graph_parallel_cgal(graph_data.nodes, graph_data.segments, threshold_meters)
     elif method == 'minkowski':
-        return simplify_graph_minkowski(graph_data,radius= threshold_meters);
+        return simplify_graph_minkowski(graph_data, radius=threshold_meters)
+    elif method == 'guided_minkowski':
+        return simplify_graph_guided_minkowski(graph_data, radius=threshold_meters)
+        
     return graph_data

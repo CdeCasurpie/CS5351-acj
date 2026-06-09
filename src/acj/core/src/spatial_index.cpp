@@ -123,25 +123,23 @@ py::tuple match_segment(
         segment_geoms.emplace_back(p1, p2);
     }
 
-    std::vector<int> indices(n_query);
+    AABB_Tree tree(segment_geoms.begin(), segment_geoms.end());
+    tree.accelerate_distance_queries();
+
+	std::vector<int> indices(n_query);
     std::vector<double> distances(n_query);
 
     for (size_t i = 0; i < n_query; i++) {
         Point_pt query(query_ptr[2*i], query_ptr[2*i + 1]);
         
-        double min_dist_sq = std::numeric_limits<double>::max();
-        int best_idx = 0;
+        Point_pt closest_point = tree.closest_point(query);
+        auto closest_primitive_it = tree.closest_primitive(query);
+        double dist = std::sqrt(CGAL::to_double(CGAL::squared_distance(query, closest_point)));
         
-        for (size_t j = 0; j < n_segments; j++) {
-            double dist_sq = CGAL::to_double(CGAL::squared_distance(query, segment_geoms[j]));
-            if (dist_sq < min_dist_sq) {
-                min_dist_sq = dist_sq;
-                best_idx = static_cast<int>(j);
-            }
-        }
+        int best_idx = static_cast<int>(closest_primitive_it - segment_geoms.begin());
         
         indices[i] = best_idx;
-        distances[i] = std::sqrt(min_dist_sq);
+        distances[i] = dist;
     }
 
     return py::make_tuple(py::cast(indices), py::cast(distances));

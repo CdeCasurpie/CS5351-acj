@@ -10,6 +10,9 @@
 #include <set>
 #include <deque>
 #include <algorithm>
+#include <memory>
+#include <numeric>
+#include <queue>
 #include <stdexcept>
 
 #include <pybind11/pybind11.h>
@@ -18,13 +21,20 @@
 
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Delaunay_triangulation_2.h>
-// Simplificacion del grafo con suma de minkowski, union booleana y staright Straight_skeleton_2
 #include <CGAL/Exact_predicates_exact_constructions_kernel.h>
 #include <CGAL/Polygon_2.h>
 #include <CGAL/Polygon_with_holes_2.h>
 #include <CGAL/Polygon_set_2.h>
 #include <CGAL/create_straight_skeleton_2.h>
 #include <CGAL/Straight_skeleton_2.h>
+
+#include <CGAL/Orthogonal_k_neighbor_search.h>
+#include <CGAL/Search_traits_2.h>
+
+#include <CGAL/AABB_tree.h>
+#include <CGAL/AABB_traits.h>
+#include <CGAL/AABB_segment_primitive.h>
+#include <CGAL/squared_distance_2.h>
 
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef CGAL::Delaunay_triangulation_2<K>                   DT;
@@ -36,8 +46,22 @@ typedef CGAL::Polygon_2<Exact_K>                          Polygon_exact;
 typedef CGAL::Polygon_with_holes_2<Exact_K>               Polygon_with_holes_exact;
 typedef CGAL::Polygon_set_2<Exact_K>                      Polygon_set_exact;
 typedef CGAL::Straight_skeleton_2<Exact_K>                Straight_skeleton;
+typedef CGAL::AABB_segment_primitive<K, std::vector<Segment_k>::const_iterator> Segment_Primitive;
+typedef CGAL::AABB_traits<K, Segment_Primitive> AABB_Segment_Traits;
+typedef CGAL::AABB_tree<AABB_Segment_Traits> AABB_Tree;
 typedef std::shared_ptr<Straight_skeleton>                Straight_skeleton_ptr;
 typedef std::tuple<long, long, long, Point_pt, Point_pt, Segment_k> SegmentInfo;
+
+
+
+typedef CGAL::Polygon_2<K>                Polygon_fast;
+typedef CGAL::Polygon_with_holes_2<K>     Polygon_with_holes_fast;
+typedef CGAL::Straight_skeleton_2<K>      Straight_skeleton_fast;
+typedef Straight_skeleton_fast::Vertex_const_handle Vertex_const_handle;
+
+typedef CGAL::Search_traits_2<K> TreeTraits;
+typedef CGAL::Orthogonal_k_neighbor_search<TreeTraits> Neighbor_search;
+typedef Neighbor_search::Tree Tree;
 
 namespace py = pybind11;
 

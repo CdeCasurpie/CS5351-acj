@@ -52,7 +52,7 @@ def main():
     print(f"      Algorithm: Minkowski Sum (Buffer) + Straight Skeleton + Smart Pruning")
     
     start_time = time.time()
-    graph_simplified = acj.simplify_graph(graph_original, threshold_meters=RADIUS_METERS, method='minkowski')
+    graph_simplified = acj.simplify_graph(graph_original, threshold_meters=RADIUS_METERS, method='guided_minkowski')
     simp_time = time.time() - start_time
     
     print(f"      ✓ Simplification completed in {simp_time:.4f} seconds")

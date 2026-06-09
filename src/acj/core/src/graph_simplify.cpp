@@ -2,6 +2,82 @@
 
 // ================= Helpers Internos =================
 
+void douglas_peucker(const std::vector<Point_pt>& points, size_t start, size_t end, double epsilon, std::vector<bool>& keep) {
+    if (start + 1 >= end) return;
+
+    double max_dist_sq = 0.0;
+    size_t index = start;
+    Segment_k seg(points[start], points[end]);
+
+    for (size_t i = start + 1; i < end; ++i) {
+        double dist_sq = CGAL::to_double(CGAL::squared_distance(points[i], seg));
+        if (dist_sq > max_dist_sq) {
+            max_dist_sq = dist_sq;
+            index = i;
+        }
+    }
+
+    if (max_dist_sq > epsilon * epsilon) {
+        keep[index] = true;
+        douglas_peucker(points, start, index, epsilon, keep);
+        douglas_peucker(points, index, end, epsilon, keep);
+    }
+}
+
+std::vector<Point_pt> simplify_polyline(const std::vector<Point_pt>& points, double epsilon) {
+    if (points.size() <= 2) return points;
+    std::vector<bool> keep(points.size(), false);
+    keep[0] = true;
+    keep[points.size() - 1] = true;
+
+    douglas_peucker(points, 0, points.size() - 1, epsilon, keep);
+
+    std::vector<Point_pt> result;
+    for (size_t i = 0; i < points.size(); ++i) {
+        if (keep[i]) result.push_back(points[i]);
+    }
+    return result;
+}
+// ================== ================= Revisar esta parte ================= ================ 
+
+Polygon_exact create_segment_buffer(double x1, double y1, double x2, double y2, double radius) {
+    double dx = x2 - x1;
+    double dy = y2 - y1;
+    double length = std::sqrt(dx * dx + dy * dy);
+    
+    if (length == 0.0) return Polygon_exact();
+    
+    double nx = (-dy / length) * radius;
+    double ny = (dx / length) * radius;
+    
+    Polygon_exact poly;
+    poly.push_back(Exact_K::Point_2(x1 + nx, y1 + ny));
+    poly.push_back(Exact_K::Point_2(x2 + nx, y2 + ny));
+    poly.push_back(Exact_K::Point_2(x2 - nx, y2 - ny));
+    poly.push_back(Exact_K::Point_2(x1 - nx, y1 - ny));
+    
+    if (poly.is_clockwise_oriented()) {
+        poly.reverse_orientation();
+    }
+    return poly;
+}
+
+Polygon_with_holes_fast convert_to_epic(const Polygon_with_holes_exact& exact_poly) {
+    Polygon_fast outer;
+    for (auto v = exact_poly.outer_boundary().vertices_begin(); v != exact_poly.outer_boundary().vertices_end(); ++v) {
+        outer.push_back(Point_pt(CGAL::to_double(v->x()), CGAL::to_double(v->y())));
+    }
+    std::vector<Polygon_fast> holes;
+    for (auto h = exact_poly.holes_begin(); h != exact_poly.holes_end(); ++h) {
+        Polygon_fast hole;
+        for (auto v = h->vertices_begin(); v != h->vertices_end(); ++v) {
+            hole.push_back(Point_pt(CGAL::to_double(v->x()), CGAL::to_double(v->y())));
+        }
+        holes.push_back(hole);
+    }
+    return Polygon_with_holes_fast(outer, holes.begin(), holes.end());
+}
+// ================== ================= Revisar esta parte ================= ================ 
 std::set<std::pair<long, long>> trace_new_segments(
     const std::set<long>& intersection_ids,
     const AdjacencyMap& adjacency,
@@ -115,8 +191,180 @@ void build_graph_structures(
     }
 }
 
-// ================= Algoritmos Principales =================
+py::tuple minkowski_guided_simplify(
+    py::array_t<double> nodes_x_in, py::array_t<double> nodes_y_in,
+    py::array_t<long> seg_start_in, py::array_t<long> seg_end_in, double radius) 
+{
+    auto nx = nodes_x_in.unchecked<1>();
+    auto ny = nodes_y_in.unchecked<1>();
+    auto ss = seg_start_in.unchecked<1>();
+    auto se = seg_end_in.unchecked<1>();
+    
+    size_t num_nodes = nx.shape(0);
+    size_t num_edges = ss.shape(0);
 
+    std::vector<int> degree(num_nodes, 0);
+    std::map<int, std::vector<int>> original_adj;
+    
+    for (size_t i = 0; i < num_edges; ++i) {
+        long u = ss(i);
+        long v = se(i);
+        degree[u]++;
+        degree[v]++;
+        original_adj[u].push_back(v);
+        original_adj[v].push_back(u);
+    }
+
+    std::vector<int> anchors;
+    for (size_t i = 0; i < num_nodes; ++i) {
+        //if (degree[i] != 2) anchors.push_back(i);
+		anchors.push_back(i);
+    }
+
+    Polygon_set_exact city_polygon_set;
+    for (size_t i = 0; i < num_edges; ++i) {
+        long u = ss(i);
+        long v = se(i);
+        Polygon_exact buffer = create_segment_buffer(nx(u), ny(u), nx(v), ny(v), radius);
+        if (!buffer.is_empty()) {
+            city_polygon_set.join(buffer);
+        }
+    }
+
+    std::vector<Polygon_with_holes_exact> res;
+    city_polygon_set.polygons_with_holes(std::back_inserter(res));
+    if (res.empty()) return py::make_tuple(py::array(), py::array(), py::array(), py::array());
+
+    std::vector<Point_pt> skel_points;
+    std::map<int, std::vector<int>> skel_adj;
+    int skel_id_counter = 0;
+
+    for (const auto& exact_poly : res) {
+        Polygon_with_holes_fast fast_poly = convert_to_epic(exact_poly);
+        
+        auto skeleton = CGAL::create_interior_straight_skeleton_2(
+            fast_poly.outer_boundary().vertices_begin(),
+            fast_poly.outer_boundary().vertices_end(),
+            fast_poly.holes_begin(),
+            fast_poly.holes_end()
+        );
+
+        std::map<Vertex_const_handle, int> skel_vertex_to_id;
+        for (auto v = skeleton->vertices_begin(); v != skeleton->vertices_end(); ++v) {
+            skel_points.push_back(v->point());
+            skel_vertex_to_id[v] = skel_id_counter++;
+        }
+
+        for (auto edge = skeleton->halfedges_begin(); edge != skeleton->halfedges_end(); ++edge) {
+            if (edge->is_inner_bisector()) {
+                int u = skel_vertex_to_id[edge->vertex()];
+                int v = skel_vertex_to_id[edge->opposite()->vertex()];
+                skel_adj[u].push_back(v);
+            }
+        }
+    }
+
+    Tree tree;
+    for (const auto& pt : skel_points) {
+        tree.insert(pt);
+    }
+
+    std::map<int, int> anchor_to_skel_id;
+    for (int anchor : anchors) {
+        Point_pt query(nx(anchor), ny(anchor));
+        Neighbor_search search(tree, query, 1);
+        Point_pt nearest = search.begin()->first;
+        
+        for (size_t i = 0; i < skel_points.size(); ++i) {
+            if (skel_points[i] == nearest) {
+                anchor_to_skel_id[anchor] = i;
+                break;
+            }
+        }
+    }
+
+    std::set<std::pair<int, int>> final_edges_set;
+
+    // Conectar anclas usando BFS rastreando el grafo original
+    for (int u : anchors) {
+        for (int initial_neighbor : original_adj[u]) {
+            
+            int prev = u;
+            int curr = initial_neighbor;
+            
+            while (degree[curr] == 2) {
+                int next_node = (original_adj[curr][0] == prev) ? original_adj[curr][1] : original_adj[curr][0];
+                prev = curr;
+                curr = next_node;
+            }
+            
+            int v = curr;
+
+            if (u < v) { 
+                int start_skel = anchor_to_skel_id[u];
+                int end_skel = anchor_to_skel_id[v];
+
+                std::queue<int> q;
+                std::map<int, int> parent;
+                q.push(start_skel);
+                parent[start_skel] = -1;
+                
+                bool found = false;
+                while (!q.empty()) {
+                    int current_skel = q.front(); q.pop();
+                    if (current_skel == end_skel) { found = true; break; }
+                    
+                    for (int neighbor : skel_adj[current_skel]) {
+                        if (parent.find(neighbor) == parent.end()) {
+                            parent[neighbor] = current_skel;
+                            q.push(neighbor);
+                        }
+                    }
+                }
+
+                if (found) {
+                    int current_skel = end_skel;
+                    while (parent[current_skel] != -1) {
+                        int p = parent[current_skel];
+                        final_edges_set.insert({std::min(current_skel, p), std::max(current_skel, p)});
+                        current_skel = p;
+                    }
+                }
+            }
+        }
+    }
+
+    std::vector<double> out_nx, out_ny;
+    std::vector<long> out_ss, out_se;
+    std::map<int, long> final_node_mapper;
+
+    long new_id_counter = 0;
+    for (auto edge : final_edges_set) {
+        int u = edge.first;
+        int v = edge.second;
+
+        if (final_node_mapper.find(u) == final_node_mapper.end()) {
+            final_node_mapper[u] = new_id_counter++;
+            out_nx.push_back(CGAL::to_double(skel_points[u].x()));
+            out_ny.push_back(CGAL::to_double(skel_points[u].y()));
+        }
+        if (final_node_mapper.find(v) == final_node_mapper.end()) {
+            final_node_mapper[v] = new_id_counter++;
+            out_nx.push_back(CGAL::to_double(skel_points[v].x()));
+            out_ny.push_back(CGAL::to_double(skel_points[v].y()));
+        }
+
+        out_ss.push_back(final_node_mapper[u]);
+        out_se.push_back(final_node_mapper[v]);
+    }
+
+    auto np_nx = py::array_t<double>(out_nx.size(), out_nx.data());
+    auto np_ny = py::array_t<double>(out_ny.size(), out_ny.data());
+    auto np_ss = py::array_t<long>(out_ss.size(), out_ss.data());
+    auto np_se = py::array_t<long>(out_se.size(), out_se.data());
+
+    return py::make_tuple(np_nx, np_ny, np_ss, np_se);
+}
 py::tuple simplify_graph_topological_cgal(
     py::array_t<double> nodes,
     py::array_t<double> segments
@@ -484,4 +732,251 @@ py::tuple simplify_graph_parallel_cgal(
         );
     }
     return py::make_tuple(py::cast(new_nodes_list), py::cast(final_segments_list));
+}
+
+// =====================================================================
+// ACJ: IMPLEMENTACIÓN CORE
+// =====================================================================
+
+py::tuple simplify_graph_acj_master_cgal(
+    py::array_t<double> nodes,
+    py::array_t<double> segments,
+    double angulo_maximo_desviacion,
+    double factor_ajuste,
+    double factor_epsilon,
+    bool with_index
+) {
+    auto nodes_buf = nodes.request();
+    auto segs_buf = segments.request();
+    
+    if (nodes_buf.ndim != 2 || nodes_buf.shape[1] != 3) throw std::runtime_error("Nodes must be Nx3 array [id, x, y]");
+    if (segs_buf.ndim != 2 || segs_buf.shape[1] != 3) throw std::runtime_error("Segments must be Mx3 array [edge_id, u, v]");
+
+    size_t num_nodes = nodes_buf.shape[0];
+    size_t num_segs = segs_buf.shape[0];
+
+    const double* nodes_ptr = static_cast<const double*>(nodes_buf.ptr);
+    const double* segs_ptr = static_cast<const double*>(segs_buf.ptr);
+
+    std::map<long long, Point_pt> node_coords;
+    std::map<long long, int> in_degree;
+    std::map<long long, int> out_degree;
+    std::map<long long, std::vector<std::pair<long long, long long>>> adj_list;
+
+    for (size_t i = 0; i < num_nodes; ++i) {
+        long long id = static_cast<long long>(nodes_ptr[3 * i]);
+        double x = nodes_ptr[3 * i + 1];
+        double y = nodes_ptr[3 * i + 2];
+        node_coords[id] = Point_pt(x, y);
+    }
+
+    for (size_t i = 0; i < num_segs; ++i) {
+        long long edge_id = static_cast<long long>(segs_ptr[3 * i]);
+        long long u = static_cast<long long>(segs_ptr[3 * i + 1]);
+        long long v = static_cast<long long>(segs_ptr[3 * i + 2]);
+        
+        out_degree[u]++;
+        in_degree[v]++;
+        adj_list[u].push_back({v, edge_id});
+    }
+
+    // --- FASE 1: MOTOR TOPOLÓGICO ---
+    std::set<long long> anchor_nodes;
+    for (size_t i = 0; i < num_nodes; ++i) {
+        long long id = static_cast<long long>(nodes_ptr[3 * i]);
+        if (in_degree[id] != 1 || out_degree[id] != 1) {
+            anchor_nodes.insert(id);
+        }
+    }
+
+    std::set<long long> visited_edges;
+    std::vector<std::vector<Point_pt>> all_original_paths;
+    std::vector<std::pair<long long, long long>> final_edges_uv;
+
+    for (long long start_node : anchor_nodes) {
+        for (const auto& edge : adj_list[start_node]) {
+            long long next_node = edge.first;
+            long long edge_id = edge.second;
+
+            if (visited_edges.count(edge_id)) continue;
+
+            std::vector<long long> path_nodes = {start_node, next_node};
+            visited_edges.insert(edge_id);
+
+            long long current_node = next_node;
+
+            while (anchor_nodes.find(current_node) == anchor_nodes.end()) {
+                if (adj_list[current_node].empty()) break;
+                
+                auto next_edge = adj_list[current_node][0];
+                long long next_v = next_edge.first;
+                long long next_edge_id = next_edge.second;
+
+                Point_pt p1 = node_coords[path_nodes[path_nodes.size() - 2]];
+                Point_pt p2 = node_coords[current_node];
+                Point_pt p3 = node_coords[next_v];
+
+                Vector_k v1(p1, p2);
+                Vector_k v2(p2, p3);
+
+                double norm1 = std::sqrt(CGAL::to_double(v1.squared_length()));
+                double norm2 = std::sqrt(CGAL::to_double(v2.squared_length()));
+
+                if (norm1 > 0 && norm2 > 0) {
+                    double dot_product = CGAL::to_double(v1 * v2);
+                    double cos_theta = std::clamp(dot_product / (norm1 * norm2), -1.0, 1.0);
+                    double angle_deviation = std::acos(cos_theta) * (180.0 / M_PI);
+
+                    if (angle_deviation > angulo_maximo_desviacion) {
+                        anchor_nodes.insert(current_node);
+                        break;
+                    }
+                }
+
+                path_nodes.push_back(next_v);
+                visited_edges.insert(next_edge_id);
+                current_node = next_v;
+            }
+
+            std::vector<Point_pt> path_coords;
+            for (long long n : path_nodes) path_coords.push_back(node_coords[n]);
+            
+            if (path_coords.size() > 1) {
+                all_original_paths.push_back(path_coords);
+                final_edges_uv.push_back({start_node, current_node});
+            }
+        }
+    }
+
+    // --- FASE 2: MOTOR GEOMÉTRICO (Voronoi Dual) ---
+    DT dt;
+    std::map<Point_pt, long long> point_to_node_id;
+    for (size_t i = 0; i < num_nodes; ++i) {
+        long long id = static_cast<long long>(nodes_ptr[3 * i]);
+        Point_pt pt = node_coords[id];
+        dt.insert(pt);
+        point_to_node_id[pt] = id;
+    }
+
+    std::map<long long, double> node_epsilon;
+    std::vector<double> valid_areas;
+
+    for (auto vit = dt.finite_vertices_begin(); vit != dt.finite_vertices_end(); ++vit) {
+        long long node_id = point_to_node_id[vit->point()];
+        bool is_infinite = false;
+        std::vector<Point_pt> voronoi_vertices;
+
+        auto fcirc = dt.incident_faces(vit);
+        auto fstart = fcirc;
+        
+        if (fcirc != nullptr) {
+            do {
+                if (dt.is_infinite(fcirc)) {
+                    is_infinite = true;
+                    break;
+                }
+                voronoi_vertices.push_back(dt.dual(fcirc));
+                fcirc++;
+            } while (fcirc != fstart);
+        }
+
+        if (!is_infinite && voronoi_vertices.size() >= 3) {
+            double area = 0.0;
+            size_t m = voronoi_vertices.size();
+            for (size_t j = 0; j < m; ++j) {
+                size_t next_j = (j + 1) % m;
+                area += voronoi_vertices[j].x() * voronoi_vertices[next_j].y() - voronoi_vertices[next_j].x() * voronoi_vertices[j].y();
+            }
+            area = 0.5 * std::abs(area);
+            node_epsilon[node_id] = std::sqrt(area) * factor_epsilon;
+            valid_areas.push_back(area);
+        } else {
+            node_epsilon[node_id] = -1.0; 
+        }
+    }
+
+    double global_avg_area = valid_areas.empty() ? 100.0 : std::accumulate(valid_areas.begin(), valid_areas.end(), 0.0) / valid_areas.size();
+    double global_epsilon_fallback = std::sqrt(global_avg_area) * factor_epsilon;
+
+    for (auto& pair : node_epsilon) {
+        if (pair.second < 0.0) pair.second = global_epsilon_fallback;
+    }
+
+    // --- CONSTRUCCIÓN DEL AABB TREE ---
+    std::vector<Segment_k> flatten_original_segments;
+    for (const auto& path : all_original_paths) {
+        for (size_t i = 0; i < path.size() - 1; ++i) {
+            flatten_original_segments.emplace_back(path[i], path[i+1]);
+        }
+    }
+    
+    AABB_Tree spatial_tree(flatten_original_segments.begin(), flatten_original_segments.end());
+    if (with_index) spatial_tree.accelerate_distance_queries();
+
+    std::vector<double> out_nodes_data;
+    std::vector<double> out_edges_data;
+    std::set<long long> exported_nodes;
+    long long out_edge_counter = 0;
+
+    for (size_t i = 0; i < all_original_paths.size(); ++i) {
+        long long u = final_edges_uv[i].first;
+        long long v = final_edges_uv[i].second;
+
+        double eps_u = node_epsilon.count(u) ? node_epsilon[u] : global_epsilon_fallback;
+        double eps_v = node_epsilon.count(v) ? node_epsilon[v] : global_epsilon_fallback;
+        double edge_epsilon = ((eps_u + eps_v) / 2.0) * factor_ajuste;
+
+        std::vector<Point_pt> simplified_path = simplify_polyline(all_original_paths[i], edge_epsilon);
+
+        if (with_index && simplified_path.size() > 2) {
+            bool collides = false;
+            for (size_t j = 0; j < simplified_path.size() - 1; ++j) {
+                Segment_k test_seg(simplified_path[j], simplified_path[j+1]);
+                
+                // Usamos el iterador base definido en tu types.hpp
+                std::vector<std::vector<Segment_k>::const_iterator> intersected_primitives;
+                spatial_tree.all_intersected_primitives(test_seg, std::back_inserter(intersected_primitives));
+                
+                // Corrección de la variable: Un segmento siempre choca consigo mismo y sus vecinos. 
+                // Si el árbol devuelve más de 2 o 3 cruces, es una colisión real con otra calle.
+                if (intersected_primitives.size() > 2) { 
+                    collides = true;
+                    break;
+                }
+            }
+            if (collides) {
+                simplified_path = simplify_polyline(all_original_paths[i], 0.5); 
+            }
+        }
+
+        for (size_t j = 0; j < simplified_path.size() - 1; ++j) {
+            out_edges_data.push_back(static_cast<double>(out_edge_counter++));
+            out_edges_data.push_back(static_cast<double>(u));
+            out_edges_data.push_back(static_cast<double>(v));
+            
+            if (!exported_nodes.count(u)) {
+                out_nodes_data.push_back(static_cast<double>(u));
+                out_nodes_data.push_back(simplified_path[0].x());
+                out_nodes_data.push_back(simplified_path[0].y());
+                exported_nodes.insert(u);
+            }
+            if (!exported_nodes.count(v)) {
+                out_nodes_data.push_back(static_cast<double>(v));
+                out_nodes_data.push_back(simplified_path[simplified_path.size()-1].x());
+                out_nodes_data.push_back(simplified_path[simplified_path.size()-1].y());
+                exported_nodes.insert(v);
+            }
+        }
+    }
+
+    size_t out_n_size = out_nodes_data.size() / 3;
+    size_t out_e_size = out_edges_data.size() / 3;
+
+    py::array_t<double> return_nodes({(ssize_t)out_n_size, (ssize_t)3});
+    py::array_t<double> return_edges({(ssize_t)out_e_size, (ssize_t)3});
+
+    std::copy(out_nodes_data.begin(), out_nodes_data.end(), return_nodes.mutable_data());
+    std::copy(out_edges_data.begin(), out_edges_data.end(), return_edges.mutable_data());
+
+    return py::make_tuple(return_nodes, return_edges);
 }
