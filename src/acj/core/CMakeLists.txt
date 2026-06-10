@@ -20,6 +20,14 @@ pybind11_add_module(acj_core
 
 target_link_libraries(acj_core PRIVATE CGAL::CGAL)
 
+# Explicitly find and include Boost headers.
+# This bypasses issues where vcpkg's BoostConfig or FindBoost fails to 
+# propagate INTERFACE_INCLUDE_DIRECTORIES correctly to consumers.
+find_path(BOOST_ROOT_INCLUDE_DIR NAMES boost/config.hpp)
+if(BOOST_ROOT_INCLUDE_DIR)
+    target_include_directories(acj_core PRIVATE "${BOOST_ROOT_INCLUDE_DIR}")
+endif()
+
 set_target_properties(acj_core PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
 )
