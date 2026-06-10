@@ -15,7 +15,7 @@ find_package(pybind11 CONFIG REQUIRED)
 include(FetchContent)
 FetchContent_Declare(
   CGAL
-  URL ${CMAKE_CURRENT_SOURCE_DIR}/CGAL-6.0.1.tar.xz
+  URL https://github.com/CGAL/cgal/releases/download/v6.0.1/CGAL-6.0.1.tar.xz
 )
 FetchContent_Populate(CGAL)
 
