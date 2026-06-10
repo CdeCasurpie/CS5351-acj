@@ -37,8 +37,8 @@ if(WIN32)
     # Include vcpkg globally for gmp/mpfr and EXACTLY inject Boost include path like the experiment!
     include_directories("C:/vcpkg/installed/x64-windows/include")
 
-    find_library(GMP_LIBRARY gmp)
-    find_library(MPFR_LIBRARY mpfr)
+    find_library(GMP_LIBRARY gmp PATHS "C:/vcpkg/installed/x64-windows/lib" NO_DEFAULT_PATH)
+    find_library(MPFR_LIBRARY mpfr PATHS "C:/vcpkg/installed/x64-windows/lib" NO_DEFAULT_PATH)
     if(GMP_LIBRARY AND MPFR_LIBRARY)
         target_link_libraries(CGAL::CGAL INTERFACE ${GMP_LIBRARY} ${MPFR_LIBRARY})
     endif()
