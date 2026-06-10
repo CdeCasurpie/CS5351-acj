@@ -28,7 +28,11 @@ add_library(CGAL::CGAL INTERFACE IMPORTED)
 target_include_directories(CGAL::CGAL INTERFACE "${cgal_SOURCE_DIR}/include")
 
 # Find Boost (strictly required by CGAL)
-find_package(Boost REQUIRED COMPONENTS headers)
+if(WIN32)
+    find_package(Boost REQUIRED COMPONENTS headers)
+else()
+    find_package(Boost REQUIRED)
+endif()
 
 if(WIN32)
     # === WINDOWS LOGIC ===

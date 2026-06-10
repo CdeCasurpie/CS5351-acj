@@ -28,6 +28,14 @@ jobs:
 
       # cibuildwheel automatically downloads the cibuildwheel docker images for linux
       # and runs the build process across different python versions.
+      - name: Cache vcpkg installed packages
+        uses: actions/cache@v4
+        if: runner.os == 'Windows'
+        with:
+          path: C:\vcpkg\installed
+          key: ${{ runner.os }}-vcpkg-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.22.0
         env:
