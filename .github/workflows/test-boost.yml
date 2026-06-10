@@ -1,0 +1,27 @@
+name: Debug Windows Vcpkg
+on:
+  push:
+    branches:
+      - test-boost-vcpkg
+
+jobs:
+  debug-vcpkg:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Boost via vcpkg
+        run: |
+          vcpkg install boost-headers:x64-windows
+
+      - name: List Installed Vcpkg Packages
+        run: |
+          vcpkg list
+
+      - name: Find boost config.hpp
+        run: |
+          dir /s /b C:\vcpkg\installed\x64-windows\*config.hpp* | findstr boost
+          
+      - name: Tree of vcpkg include directory
+        run: |
+          tree /f C:\vcpkg\installed\x64-windows\include
