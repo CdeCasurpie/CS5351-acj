@@ -37,14 +37,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-vcpkg-
 
-      - name: Set up BOOST_ROOT on Windows
-        if: runner.os == 'Windows'
-        run: |
-          $boost_dir = (Get-ChildItem "C:\hostedtoolcache\windows\Boost" | Sort-Object Name -Descending | Select-Object -First 1).FullName
-          $boost_root = Join-Path $boost_dir "x86_64"
-          $boost_root_fwd = $boost_root -replace '\\', '/'
-          echo "MY_BOOST_ROOT=$boost_root_fwd" >> $env:GITHUB_ENV
-
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.22.0
         env:
@@ -52,8 +44,8 @@ jobs:
           CIBW_BEFORE_ALL_LINUX: "dnf install -y gmp-devel mpfr-devel boost-devel"
           CIBW_BEFORE_ALL_MACOS: "brew install gmp mpfr boost"
           CIBW_ENVIRONMENT_MACOS: 'MACOSX_DEPLOYMENT_TARGET="15.0"'
-          CIBW_BEFORE_ALL_WINDOWS: "vcpkg install gmp mpfr"
-          CIBW_ENVIRONMENT_WINDOWS: 'SKBUILD_CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake;-DVCPKG_EXCLUDE_FIND_PACKAGE_Boost=1;-DBOOST_ROOT=${MY_BOOST_ROOT}"'
+          CIBW_BEFORE_ALL_WINDOWS: "vcpkg install boost-headers gmp mpfr"
+          CIBW_ENVIRONMENT_WINDOWS: 'SKBUILD_CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"'
           CIBW_SKIP: "cp36-* cp37-* cp38-* pp* *-musllinux_* *i686* *win32*" # Omitir versiones muy viejas o 32 bits
 
       - uses: actions/upload-artifact@v4
