@@ -25,28 +25,56 @@ string(REPLACE "bb,true)?" "bb)?" AABB_TRAITS_CONTENT "${AABB_TRAITS_CONTENT}")
 file(WRITE "${cgal_SOURCE_DIR}/include/CGAL/AABB_traits_2.h" "${AABB_TRAITS_CONTENT}")
 # CGAL is header-only from 5.0+, just add the include directories
 add_library(CGAL::CGAL INTERFACE IMPORTED)
-set_target_properties(CGAL::CGAL PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES "${cgal_SOURCE_DIR}/include"
-)
+target_include_directories(CGAL::CGAL INTERFACE "${cgal_SOURCE_DIR}/include")
 
 # Find Boost (strictly required by CGAL)
 find_package(Boost REQUIRED)
-if(TARGET Boost::headers)
-  set_property(TARGET CGAL::CGAL APPEND PROPERTY INTERFACE_LINK_LIBRARIES "Boost::headers")
-elseif(TARGET Boost::boost)
-  set_property(TARGET CGAL::CGAL APPEND PROPERTY INTERFACE_LINK_LIBRARIES "Boost::boost")
-elseif(Boost_INCLUDE_DIRS)
-  set_property(TARGET CGAL::CGAL APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${Boost_INCLUDE_DIRS}")
-endif()
 
-# Optional: Find GMP and MPFR if available on the system
-find_library(GMP_LIBRARY gmp)
-find_library(MPFR_LIBRARY mpfr)
-if(GMP_LIBRARY AND MPFR_LIBRARY)
-    # Add to existing link libraries
-    set_property(TARGET CGAL::CGAL APPEND PROPERTY
-      INTERFACE_LINK_LIBRARIES "${GMP_LIBRARY};${MPFR_LIBRARY}"
-    )
+if(WIN32)
+    # === WINDOWS LOGIC ===
+    if(TARGET Boost::headers)
+        target_link_libraries(CGAL::CGAL INTERFACE Boost::headers)
+    elseif(TARGET Boost::boost)
+        target_link_libraries(CGAL::CGAL INTERFACE Boost::boost)
+    endif()
+
+    find_library(GMP_LIBRARY gmp)
+    find_library(MPFR_LIBRARY mpfr)
+    if(GMP_LIBRARY AND MPFR_LIBRARY)
+        target_link_libraries(CGAL::CGAL INTERFACE ${GMP_LIBRARY} ${MPFR_LIBRARY})
+    endif()
+
+elseif(APPLE)
+    # === MACOS LOGIC ===
+    if(TARGET Boost::headers)
+        target_link_libraries(CGAL::CGAL INTERFACE Boost::headers)
+    elseif(TARGET Boost::boost)
+        target_link_libraries(CGAL::CGAL INTERFACE Boost::boost)
+    elseif(Boost_INCLUDE_DIRS)
+        target_include_directories(CGAL::CGAL INTERFACE "${Boost_INCLUDE_DIRS}")
+    endif()
+
+    find_library(GMP_LIBRARY gmp)
+    find_library(MPFR_LIBRARY mpfr)
+    if(GMP_LIBRARY AND MPFR_LIBRARY)
+        target_link_libraries(CGAL::CGAL INTERFACE ${GMP_LIBRARY} ${MPFR_LIBRARY})
+    endif()
+
+else()
+    # === LINUX (UBUNTU) LOGIC ===
+    if(TARGET Boost::headers)
+        target_link_libraries(CGAL::CGAL INTERFACE Boost::headers)
+    elseif(TARGET Boost::boost)
+        target_link_libraries(CGAL::CGAL INTERFACE Boost::boost)
+    elseif(Boost_INCLUDE_DIRS)
+        target_include_directories(CGAL::CGAL INTERFACE "${Boost_INCLUDE_DIRS}")
+    endif()
+
+    find_library(GMP_LIBRARY gmp)
+    find_library(MPFR_LIBRARY mpfr)
+    if(GMP_LIBRARY AND MPFR_LIBRARY)
+        target_link_libraries(CGAL::CGAL INTERFACE ${GMP_LIBRARY} ${MPFR_LIBRARY})
+    endif()
 endif()
 
 add_compile_definitions(CGAL_DO_NOT_USE_BOOST_MP)
