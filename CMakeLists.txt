@@ -28,17 +28,15 @@ add_library(CGAL::CGAL INTERFACE IMPORTED)
 target_include_directories(CGAL::CGAL INTERFACE "${cgal_SOURCE_DIR}/include")
 
 # Find Boost (strictly required by CGAL)
-if(WIN32)
-    find_package(Boost REQUIRED COMPONENTS headers)
-else()
-    find_package(Boost REQUIRED)
-endif()
+find_package(Boost REQUIRED)
 
 if(WIN32)
     # === WINDOWS LOGIC ===
-    # Force the vcpkg include directory globally. vcpkg targets sometimes 
-    # fail to propagate INTERFACE_INCLUDE_DIRECTORIES correctly.
+    # Include vcpkg globally for gmp/mpfr, and Boost_INCLUDE_DIRS for system Boost
     include_directories("C:/vcpkg/installed/x64-windows/include")
+    if(Boost_INCLUDE_DIRS)
+        include_directories("${Boost_INCLUDE_DIRS}")
+    endif()
 
     if(TARGET Boost::headers)
         target_link_libraries(CGAL::CGAL INTERFACE Boost::headers)

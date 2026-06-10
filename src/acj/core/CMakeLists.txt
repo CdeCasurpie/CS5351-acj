@@ -20,13 +20,12 @@ pybind11_add_module(acj_core
 
 target_link_libraries(acj_core PRIVATE CGAL::CGAL)
 
-if(WIN32)
-    find_package(Boost REQUIRED COMPONENTS headers)
-else()
-    find_package(Boost REQUIRED)
-endif()
+find_package(Boost REQUIRED)
 if(TARGET Boost::headers)
     target_link_libraries(acj_core PRIVATE Boost::headers)
+endif()
+if(Boost_INCLUDE_DIRS)
+    target_include_directories(acj_core PRIVATE "${Boost_INCLUDE_DIRS}")
 endif()
 
 if(WIN32)
