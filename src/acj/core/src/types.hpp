@@ -32,8 +32,8 @@
 #include <CGAL/Search_traits_2.h>
 
 #include <CGAL/AABB_tree.h>
-#include <CGAL/AABB_traits.h>
-#include <CGAL/AABB_segment_primitive.h>
+#include <CGAL/AABB_traits_2.h>
+#include <CGAL/AABB_segment_primitive_2.h>
 #include <CGAL/squared_distance_2.h>
 
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
@@ -46,8 +46,8 @@ typedef CGAL::Polygon_2<Exact_K>                          Polygon_exact;
 typedef CGAL::Polygon_with_holes_2<Exact_K>               Polygon_with_holes_exact;
 typedef CGAL::Polygon_set_2<Exact_K>                      Polygon_set_exact;
 typedef CGAL::Straight_skeleton_2<Exact_K>                Straight_skeleton;
-typedef CGAL::AABB_segment_primitive<K, std::vector<Segment_k>::const_iterator> Segment_Primitive;
-typedef CGAL::AABB_traits<K, Segment_Primitive> AABB_Segment_Traits;
+typedef CGAL::AABB_segment_primitive_2<K, std::vector<Segment_k>::const_iterator> Segment_Primitive;
+typedef CGAL::AABB_traits_2<K, Segment_Primitive> AABB_Segment_Traits;
 typedef CGAL::AABB_tree<AABB_Segment_Traits> AABB_Tree;
 typedef std::shared_ptr<Straight_skeleton>                Straight_skeleton_ptr;
 typedef std::tuple<long, long, long, Point_pt, Point_pt, Segment_k> SegmentInfo;
