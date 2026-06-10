@@ -29,7 +29,7 @@ if(TARGET Boost::headers)
     target_link_libraries(acj_core PRIVATE Boost::headers)
 endif()
 
-if(WIN32 AND EXISTS "C:/vcpkg/installed/x64-windows/include/boost/config.hpp")
+if(WIN32)
     target_include_directories(acj_core PRIVATE "C:/vcpkg/installed/x64-windows/include")
 endif()
 

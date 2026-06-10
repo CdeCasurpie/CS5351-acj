@@ -36,6 +36,10 @@ endif()
 
 if(WIN32)
     # === WINDOWS LOGIC ===
+    # Force the vcpkg include directory globally. vcpkg targets sometimes 
+    # fail to propagate INTERFACE_INCLUDE_DIRECTORIES correctly.
+    include_directories("C:/vcpkg/installed/x64-windows/include")
+
     if(TARGET Boost::headers)
         target_link_libraries(CGAL::CGAL INTERFACE Boost::headers)
     elseif(TARGET Boost::boost)
