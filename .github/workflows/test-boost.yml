@@ -10,14 +10,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache Boost Choco
+        id: cache-boost
+        uses: actions/cache@v4
+        with:
+          path: C:\local\boost_1_87_0
+          key: ${{ runner.os }}-choco-boost-1.87.0
+
       - name: Install Boost via Choco
+        if: steps.cache-boost.outputs.cache-hit != 'true'
         run: |
           choco install boost-msvc-14.3
 
-      - name: Find Boost config.hpp via Choco
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Compile C++ with MSVC
         run: |
-          $paths = Get-ChildItem -Path C:\local -Filter "config.hpp" -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match "boost\\config\.hpp$" }
-          foreach ($p in $paths) {
-              Write-Output "FOUND BOOST CONFIG: $($p.FullName)"
+          Set-Content -Path test_boost.cpp -Value @"
+          #include <iostream>
+          #include <boost/config.hpp>
+          int main() {
+              std::cout << `"Boost Compiler Info: `" << BOOST_COMPILER << `"\n`";
+              std::cout << `"Boost version: `" << BOOST_VERSION << `"\n`";
+              return 0;
           }
+          "@
+          
+          # Compilar directamente pasándole la ruta que encontramos (-I equivalente en MSVC es /I)
+          cl.exe /EHsc /I C:\local\boost_1_87_0 test_boost.cpp
+          
+          # Ejecutar el binario resultante
+          .\test_boost.exe
 
