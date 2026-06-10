@@ -44,7 +44,7 @@ jobs:
           CIBW_BEFORE_ALL_LINUX: "dnf install -y gmp-devel mpfr-devel boost-devel"
           CIBW_BEFORE_ALL_MACOS: "brew install gmp mpfr boost"
           CIBW_ENVIRONMENT_MACOS: 'MACOSX_DEPLOYMENT_TARGET="15.0"'
-          CIBW_BEFORE_ALL_WINDOWS: "vcpkg install boost-headers gmp mpfr"
+          CIBW_BEFORE_ALL_WINDOWS: "vcpkg install boost-headers:x64-windows gmp:x64-windows mpfr:x64-windows"
           CIBW_ENVIRONMENT_WINDOWS: 'SKBUILD_CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"'
           CIBW_SKIP: "cp36-* cp37-* cp38-* pp* *-musllinux_* *i686* *win32*" # Omitir versiones muy viejas o 32 bits
 
