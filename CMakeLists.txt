@@ -19,6 +19,10 @@ FetchContent_Declare(
 )
 FetchContent_Populate(CGAL)
 
+# PATCH CGAL BUG in AABB_traits_2.h
+file(READ "${cgal_SOURCE_DIR}/include/CGAL/AABB_traits_2.h" AABB_TRAITS_CONTENT)
+string(REPLACE "bb,true)?" "bb)?" AABB_TRAITS_CONTENT "${AABB_TRAITS_CONTENT}")
+file(WRITE "${cgal_SOURCE_DIR}/include/CGAL/AABB_traits_2.h" "${AABB_TRAITS_CONTENT}")
 # CGAL is header-only from 5.0+, just add the include directories
 add_library(CGAL::CGAL INTERFACE IMPORTED)
 set_target_properties(CGAL::CGAL PROPERTIES
@@ -41,4 +45,5 @@ if(GMP_LIBRARY AND MPFR_LIBRARY)
     )
 endif()
 
+add_compile_definitions(CGAL_DO_NOT_USE_BOOST_MP)
 add_subdirectory(src/acj/core)

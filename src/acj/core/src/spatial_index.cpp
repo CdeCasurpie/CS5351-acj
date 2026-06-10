@@ -132,8 +132,9 @@ py::tuple match_segment(
     for (size_t i = 0; i < n_query; i++) {
         Point_pt query(query_ptr[2*i], query_ptr[2*i + 1]);
         
-        Point_pt closest_point = tree.closest_point(query);
-        auto closest_primitive_it = tree.closest_primitive(query);
+        auto closest_pair = tree.closest_point_and_primitive(query);
+        Point_pt closest_point = closest_pair.first;
+        auto closest_primitive_it = closest_pair.second;
         double dist = std::sqrt(CGAL::to_double(CGAL::squared_distance(query, closest_point)));
         
         int best_idx = static_cast<int>(closest_primitive_it - segment_geoms.begin());

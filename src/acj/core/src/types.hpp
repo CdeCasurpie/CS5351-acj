@@ -35,6 +35,7 @@
 #include <CGAL/AABB_traits_2.h>
 #include <CGAL/AABB_segment_primitive_2.h>
 #include <CGAL/squared_distance_2.h>
+#include <CGAL/intersections.h>
 
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef CGAL::Delaunay_triangulation_2<K>                   DT;
