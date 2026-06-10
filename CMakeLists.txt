@@ -28,22 +28,14 @@ add_library(CGAL::CGAL INTERFACE IMPORTED)
 target_include_directories(CGAL::CGAL INTERFACE "${cgal_SOURCE_DIR}/include")
 
 # Find Boost (strictly required by CGAL)
-find_package(Boost REQUIRED)
+if(NOT WIN32)
+    find_package(Boost REQUIRED)
+endif()
 
 if(WIN32)
     # === WINDOWS LOGIC ===
-    # Include vcpkg globally for gmp/mpfr
+    # Include vcpkg globally for gmp/mpfr and EXACTLY inject Boost include path like the experiment!
     include_directories("C:/vcpkg/installed/x64-windows/include")
-    
-    if(Boost_INCLUDE_DIRS)
-        include_directories("${Boost_INCLUDE_DIRS}")
-    endif()
-
-    if(TARGET Boost::headers)
-        target_link_libraries(CGAL::CGAL INTERFACE Boost::headers)
-    elseif(TARGET Boost::boost)
-        target_link_libraries(CGAL::CGAL INTERFACE Boost::boost)
-    endif()
 
     find_library(GMP_LIBRARY gmp)
     find_library(MPFR_LIBRARY mpfr)
