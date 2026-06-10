@@ -28,30 +28,15 @@ add_library(CGAL::CGAL INTERFACE IMPORTED)
 target_include_directories(CGAL::CGAL INTERFACE "${cgal_SOURCE_DIR}/include")
 
 # Find Boost (strictly required by CGAL)
-if(WIN32)
-    find_package(Boost REQUIRED COMPONENTS headers)
-else()
-    find_package(Boost REQUIRED)
-endif()
+find_package(Boost REQUIRED)
 
 if(WIN32)
     # === WINDOWS LOGIC ===
     # Include vcpkg globally for gmp/mpfr
     include_directories("C:/vcpkg/installed/x64-windows/include")
     
-    # Bulletproof Boost Header Injection
-    file(GLOB BOOST_CONFIG_HPP_PATH 
-        "C:/vcpkg/installed/x64-windows/include/boost/config.hpp"
-        "C:/vcpkg/installed/x64-windows/include/*/boost/config.hpp"
-    )
-    if(BOOST_CONFIG_HPP_PATH)
-        list(GET BOOST_CONFIG_HPP_PATH 0 FIRST_BOOST_CONFIG)
-        get_filename_component(BOOST_DIR "${FIRST_BOOST_CONFIG}" DIRECTORY)
-        get_filename_component(BOOST_INC_ROOT "${BOOST_DIR}" DIRECTORY)
-        include_directories("${BOOST_INC_ROOT}")
-        message(WARNING "ROOT: FORCE INJECTED BOOST INCLUDE ROOT: ${BOOST_INC_ROOT}")
-    else()
-        message(FATAL_ERROR "ROOT: ABSOLUTELY COULD NOT FIND boost/config.hpp IN VCPKG!")
+    if(Boost_INCLUDE_DIRS)
+        include_directories("${Boost_INCLUDE_DIRS}")
     endif()
 
     if(TARGET Boost::headers)
