@@ -31,9 +31,13 @@ set_target_properties(CGAL::CGAL PROPERTIES
 
 # Find Boost (strictly required by CGAL)
 find_package(Boost REQUIRED)
-set_target_properties(CGAL::CGAL PROPERTIES
-  INTERFACE_LINK_LIBRARIES "Boost::headers"
-)
+if(TARGET Boost::headers)
+  set_property(TARGET CGAL::CGAL APPEND PROPERTY INTERFACE_LINK_LIBRARIES "Boost::headers")
+elseif(TARGET Boost::boost)
+  set_property(TARGET CGAL::CGAL APPEND PROPERTY INTERFACE_LINK_LIBRARIES "Boost::boost")
+elseif(Boost_INCLUDE_DIRS)
+  set_property(TARGET CGAL::CGAL APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${Boost_INCLUDE_DIRS}")
+endif()
 
 # Optional: Find GMP and MPFR if available on the system
 find_library(GMP_LIBRARY gmp)
