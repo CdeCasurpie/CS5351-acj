@@ -1,5 +1,10 @@
-#include "graph_simplify.hpp"
+#define _USE_MATH_DEFINES
+#include <cmath>
+#ifndef M_PI
+    #define M_PI 3.14159265358979323846
+#endif
 
+#include "graph_simplify.hpp"
 // ================= Helpers Internos =================
 
 void douglas_peucker(const std::vector<Point_pt>& points, size_t start, size_t end, double epsilon, std::vector<bool>& keep) {
@@ -972,8 +977,8 @@ py::tuple simplify_graph_acj_master_cgal(
     size_t out_n_size = out_nodes_data.size() / 3;
     size_t out_e_size = out_edges_data.size() / 3;
 
-    py::array_t<double> return_nodes({(ssize_t)out_n_size, (ssize_t)3});
-    py::array_t<double> return_edges({(ssize_t)out_e_size, (ssize_t)3});
+    py::array_t<double> return_nodes({(py::ssize_t)out_n_size, (py::ssize_t)3});
+    py::array_t<double> return_edges({(py::ssize_t)out_e_size, (py::ssize_t)3});
 
     std::copy(out_nodes_data.begin(), out_nodes_data.end(), return_nodes.mutable_data());
     std::copy(out_edges_data.begin(), out_edges_data.end(), return_edges.mutable_data());
