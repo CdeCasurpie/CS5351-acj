@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools >= 61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["scikit-build-core>=0.5.0", "pybind11"]
+build-backend = "scikit_build_core.build"
 
 [project]
 name = "acj"
@@ -28,3 +28,6 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+
+[tool.scikit-build]
+wheel.packages = ["src/acj"]

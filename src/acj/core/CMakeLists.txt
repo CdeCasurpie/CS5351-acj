@@ -10,7 +10,7 @@ endif()
 
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)
-find_package(CGAL REQUIRED)
+# CGAL target is now provided by FetchContent in the parent CMakeLists.txt
 
 pybind11_add_module(acj_core 
     src/bindings.cpp 
@@ -23,3 +23,6 @@ target_link_libraries(acj_core PRIVATE CGAL::CGAL)
 set_target_properties(acj_core PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
 )
+
+# Install the extension so scikit-build-core includes it in the wheel
+install(TARGETS acj_core DESTINATION .)

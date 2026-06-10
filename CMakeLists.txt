@@ -10,6 +10,28 @@ endif()
 
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)
-find_package(CGAL REQUIRED)
+
+# Use FetchContent to extract the local CGAL tarball during build
+include(FetchContent)
+FetchContent_Declare(
+  CGAL
+  URL ${CMAKE_CURRENT_SOURCE_DIR}/CGAL-6.0.1.tar.xz
+)
+FetchContent_Populate(CGAL)
+
+# CGAL is header-only from 5.0+, just add the include directories
+add_library(CGAL::CGAL INTERFACE IMPORTED)
+set_target_properties(CGAL::CGAL PROPERTIES
+  INTERFACE_INCLUDE_DIRECTORIES "${cgal_SOURCE_DIR}/include"
+)
+
+# Optional: Find GMP and MPFR if available on the system
+find_library(GMP_LIBRARY gmp)
+find_library(MPFR_LIBRARY mpfr)
+if(GMP_LIBRARY AND MPFR_LIBRARY)
+    set_target_properties(CGAL::CGAL PROPERTIES
+      INTERFACE_LINK_LIBRARIES "${GMP_LIBRARY};${MPFR_LIBRARY}"
+    )
+endif()
 
 add_subdirectory(src/acj/core)
