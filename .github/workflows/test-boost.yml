@@ -10,16 +10,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Boost via Choco
+      - name: Install Boost via vcpkg
         run: |
-          choco install boost-msvc-14.3
+          vcpkg install boost-headers:x64-windows
 
-      - name: Find Boost via Choco
+      - name: Find Boost config.hpp in vcpkg
         run: |
-          dir /s /b C:\local\*config.hpp* | findstr boost
-
-      - name: Set up BOOST_ROOT
-        run: |
-          $boost_dir = (Get-ChildItem "C:\local" -Filter "boost_*" | Select-Object -First 1).FullName
-          echo "BOOST_ROOT=$boost_dir"
+          $paths = Get-ChildItem -Path C:\vcpkg\installed -Filter "config.hpp" -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match "boost\\config\.hpp$" }
+          foreach ($p in $paths) {
+              Write-Output "FOUND BOOST CONFIG: $($p.FullName)"
+          }
 
