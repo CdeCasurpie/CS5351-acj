@@ -44,34 +44,42 @@ graph TD
 
 ## Installation Guide
 
-### Prerequisites
+### Quick Install (Recommended)
+ACJ is officially published on PyPI and ships with pre-compiled wheels for Linux, macOS (Apple Silicon), and Windows. You do **not** need to compile any C++ code manually!
+
+Simply run:
+```bash
+pip install acj
+```
+
+*(Note: We recommend installing it within a Python virtual environment `python -m venv venv`)*
+
+### Developer / From Source Installation
+If you want to modify the library or the C++ core, you will need to build it from source.
+
+**Prerequisites:**
 You need a system with C++17 support, CMake, and the following libraries:
 - **CGAL** (Computational Geometry Algorithms Library)
 - **Boost**
 - **pybind11**
 
-On Ubuntu/Debian:
+*On Ubuntu/Debian:*
 ```bash
 sudo apt-get update
 sudo apt-get install cmake libcgal-dev libboost-all-dev
 ```
-On Arch Linux:
+*On Arch Linux:*
 ```bash
 sudo pacman -S cmake cgal boost pybind11
 ```
 
-### Building the Package
-We highly recommend setting up a virtual environment:
-
+**Building the Package:**
 ```bash
+git clone https://github.com/CdeCasurpie/CS5351-acj.git
+cd CS5351-acj
 python -m venv venv
 source venv/bin/activate
 pip install -U pip setuptools wheel
-```
-
-Install the package in editable mode (which will trigger CMake build):
-
-```bash
 pip install -e .
 ```
 
