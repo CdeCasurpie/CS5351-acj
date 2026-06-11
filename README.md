@@ -104,7 +104,19 @@ print("Simplified:", evaluator.simplified_network)
 
 ## Module Structure (API Reference)
 
-- `acj.core`: Contains the fundamental proxy data structures (`UrbanNetwork`) and the semantics collision resolver (`resolve_semantics`).
-- `acj.algorithms`: Houses the pure Python geometric logic wrappers and spatial spatial map indices (`MapIndex`).
-- `acj.data`: Input/Output handlers and data object bindings (`SimplificationResult`, `GraphData`).
-- `acj.evaluation`: Evaluation engine, concrete metric classes, and evaluators (`BaseEvaluator`, `ACJTopologicalEvaluator`).
+### `acj.core` (The Heart of the Framework)
+This module acts as the central orchestrator for data decoupling.
+- **`UrbanNetwork`**: The fundamental data structure of the library. It stores raw network topologies in heavily optimized Pandas DataFrames alongside dictionaries of semantic metadata. Supports multimodal ingestion from `NetworkX`, `osmnx`, or arbitrary DataFrames.
+- **`resolve_semantics()`**: The pure Python metadata fusion engine. When a graph is collapsed by C++, this function takes the topological lineage map and automatically resolves semantic collisions (e.g., averaging max speeds or concatenating street names) to keep information loss at 0.
+
+### `acj.algorithms` (Python Wrappers & Indexing)
+- **`graph` / `minkowski`**: Wrappers for invoking our low-level C++ simplification procedures. Here you'll find interfaces for topological simplifications, geometric clustering, Minkowski-sum reductions, and more.
+- **`MapIndex`**: An advanced spatial querying interface wrapping CGAL spatial trees, enabling fast nearest-neighbor point-to-graph assignments (essential for crime mapping or event correlation on large networks).
+
+### `acj.data` (Data Binding & IO)
+- **`SimplificationResult`**: The critical struct generated and bound directly from pybind11. It holds the new `GraphData` topology alongside `.node_lineage` and `.edge_lineage` dictionaries linking new entities back to their original IDs.
+- **`GraphData`**: Internal lightweight wrapper handling node/edge validations before passing arrays down to C++.
+
+### `acj.evaluation` (Research & Metrics Engine)
+- **`BaseEvaluator` / `ACJTopologicalEvaluator`**: Automates the simplification lifecycle. These evaluators accept a raw `UrbanNetwork`, inject it into C++ for reduction, apply the semantic resolution layer, and systematically test the results against predefined metrics.
+- **`CompressionRatioMetric` / `SemanticSpeedDistortionMetric`**: Pluggable metrics allowing researchers to quantitatively evaluate exactly how much data is compressed and what percentage of the semantic truth (like speed distributions) is distorted during network abstraction.
