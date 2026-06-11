@@ -18,6 +18,16 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
+#include <unordered_map>
+
+typedef pybind11::tuple GraphData;
+
+struct SimplificationResult {
+    GraphData graph;
+    std::unordered_map<int, std::vector<int>> node_lineage;
+    std::unordered_map<int, std::vector<int>> edge_lineage;
+};
+
 
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Delaunay_triangulation_2.h>

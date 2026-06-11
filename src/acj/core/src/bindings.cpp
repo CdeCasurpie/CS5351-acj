@@ -7,6 +7,12 @@ namespace py = pybind11;
 PYBIND11_MODULE(acj_core, m) {
     m.doc() = "ACJ Core - CGAL-based spatial indexing & graph simplification";
 
+    py::class_<SimplificationResult>(m, "SimplificationResult")
+        .def_readwrite("graph", &SimplificationResult::graph)
+        .def_readwrite("node_lineage", &SimplificationResult::node_lineage)
+        .def_readwrite("edge_lineage", &SimplificationResult::edge_lineage);
+
+
     // ==========================================================
     // 1. ÍNDICES ESPACIALES Y CLUSTERING
     // ==========================================================

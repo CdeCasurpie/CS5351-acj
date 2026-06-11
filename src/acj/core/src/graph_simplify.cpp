@@ -196,7 +196,7 @@ void build_graph_structures(
     }
 }
 
-py::tuple minkowski_guided_simplify(
+SimplificationResult minkowski_guided_simplify(
     py::array_t<double> nodes_x_in, py::array_t<double> nodes_y_in,
     py::array_t<long> seg_start_in, py::array_t<long> seg_end_in, double radius) 
 {
@@ -238,7 +238,7 @@ py::tuple minkowski_guided_simplify(
 
     std::vector<Polygon_with_holes_exact> res;
     city_polygon_set.polygons_with_holes(std::back_inserter(res));
-    if (res.empty()) return py::make_tuple(py::array(), py::array(), py::array(), py::array());
+    if (res.empty()) return SimplificationResult{py::make_tuple(py::array(), py::array(), py::array(), py::array())};
 
     std::vector<Point_pt> skel_points;
     std::map<int, std::vector<int>> skel_adj;
@@ -368,9 +368,9 @@ py::tuple minkowski_guided_simplify(
     auto np_ss = py::array_t<long>(out_ss.size(), out_ss.data());
     auto np_se = py::array_t<long>(out_se.size(), out_se.data());
 
-    return py::make_tuple(np_nx, np_ny, np_ss, np_se);
+    return SimplificationResult{py::make_tuple(np_nx, np_ny, np_ss, np_se)};
 }
-py::tuple simplify_graph_topological_cgal(
+SimplificationResult simplify_graph_topological_cgal(
     py::array_t<double> nodes,
     py::array_t<double> segments
 ) {
@@ -405,10 +405,10 @@ py::tuple simplify_graph_topological_cgal(
         Point_pt p2 = node_map[id2];
         new_segments_list.emplace_back(new_segment_id++, id1, id2, p1.x(), p1.y(), p2.x(), p2.y());
     }
-    return py::make_tuple(py::cast(new_nodes_list), py::cast(new_segments_list));
+    return SimplificationResult{py::make_tuple(py::cast(new_nodes_list), py::cast(new_segments_list))};
 }
 
-py::tuple simplify_graph_minkowski_cgal(
+SimplificationResult simplify_graph_minkowski_cgal(
 	py::array_t<double> nodes,
 	py::array_t<double> segments,
 	double radius
@@ -501,10 +501,10 @@ py::tuple simplify_graph_minkowski_cgal(
 		}
     }
     
-    return py::make_tuple(py::cast(new_nodes_list), py::cast(new_segments_list));
+    return SimplificationResult{py::make_tuple(py::cast(new_nodes_list), py::cast(new_segments_list))};
 }
 
-py::tuple simplify_graph_geometric_cgal(
+SimplificationResult simplify_graph_geometric_cgal(
     py::array_t<double> nodes,
     py::array_t<double> segments,
     double threshold
@@ -600,10 +600,10 @@ py::tuple simplify_graph_geometric_cgal(
         Point_pt p2 = new_node_coords[id2];
         new_segments_list.emplace_back(new_segment_id++, id1, id2, p1.x(), p1.y(), p2.x(), p2.y());
     }
-    return py::make_tuple(py::cast(new_nodes_list), py::cast(new_segments_list));
+    return SimplificationResult{py::make_tuple(py::cast(new_nodes_list), py::cast(new_segments_list))};
 }
 
-py::tuple simplify_graph_parallel_cgal(
+SimplificationResult simplify_graph_parallel_cgal(
     py::array_t<double> nodes,
     py::array_t<double> segments,
     double distance_threshold,
@@ -617,7 +617,7 @@ py::tuple simplify_graph_parallel_cgal(
     build_graph_structures(nodes, segments, node_map, node_degrees, adjacency, segments_info_list);
 
     if (segments_info_list.empty()) {
-        return py::make_tuple(py::cast(std::vector<std::tuple<long, double, double>>{}), py::cast(std::vector<std::tuple<long, long, long, double, double, double, double>>{}));
+        return SimplificationResult{py::make_tuple(py::cast(std::vector<std::tuple<long, double, double>>{}), py::cast(std::vector<std::tuple<long, long, long, double, double, double, double>>{}))};
     }
 
     std::vector<int> parent(segments_info_list.size());
@@ -736,14 +736,14 @@ py::tuple simplify_graph_parallel_cgal(
             CGAL::to_double(p2.x()), CGAL::to_double(p2.y())
         );
     }
-    return py::make_tuple(py::cast(new_nodes_list), py::cast(final_segments_list));
+    return SimplificationResult{py::make_tuple(py::cast(new_nodes_list), py::cast(final_segments_list))};
 }
 
 // =====================================================================
 // ACJ: IMPLEMENTACIÓN CORE
 // =====================================================================
 
-py::tuple simplify_graph_acj_master_cgal(
+SimplificationResult simplify_graph_acj_master_cgal(
     py::array_t<double> nodes,
     py::array_t<double> segments,
     double angulo_maximo_desviacion,
@@ -983,5 +983,5 @@ py::tuple simplify_graph_acj_master_cgal(
     std::copy(out_nodes_data.begin(), out_nodes_data.end(), return_nodes.mutable_data());
     std::copy(out_edges_data.begin(), out_edges_data.end(), return_edges.mutable_data());
 
-    return py::make_tuple(return_nodes, return_edges);
+    return SimplificationResult{py::make_tuple(return_nodes, return_edges)};
 }

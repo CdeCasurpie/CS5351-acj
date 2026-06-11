@@ -9,10 +9,10 @@ import pandas as pd
 import numpy as np
 from collections import defaultdict, deque
 from typing import Dict, List, Tuple, Set
-from acj.data.io import GraphData
+from acj.data.io import GraphData, SimplificationResult
 from acj.algorithms.minkowski import simplify_graph_minkowski
 
-def simplify_graph_topological(graph_data: GraphData) -> GraphData:
+def simplify_graph_topological(graph_data: GraphData) -> SimplificationResult:
     """
     Simplify a graph by consolidating nodes of degree 2 (topological simplification).
     
@@ -26,7 +26,7 @@ def simplify_graph_topological(graph_data: GraphData) -> GraphData:
     
     Example:
         >>> graph = acj.load_graph(nodes_df, segments_df)
-        >>> simplified = acj.simplify_graph_topological(graph)
+        topo_simplified = simplify_graph_topological(graph_data).graph
         >>> print(f"Reduced from {len(graph.nodes)} to {len(simplified.nodes)} nodes")
     
     Notes:
@@ -39,7 +39,7 @@ def simplify_graph_topological(graph_data: GraphData) -> GraphData:
     segments_df = graph_data.segments.copy()
     
     if len(nodes_df) == 0 or len(segments_df) == 0:
-        return graph_data
+        return SimplificationResult(graph_data)
     
     # Construimos listas de adyacencia direccionales (in/out)
     out_edges = defaultdict(list)
@@ -64,7 +64,7 @@ def simplify_graph_topological(graph_data: GraphData) -> GraphData:
     
     # Si conservamos todos, devolvemos el original
     if len(nodes_to_keep) == len(nodes_df):
-        return graph_data
+        return SimplificationResult(graph_data)
     
     # Reconstruimos los segmentos saltando los nodos eliminados
     new_segments = []
@@ -117,9 +117,9 @@ def simplify_graph_topological(graph_data: GraphData) -> GraphData:
         columns=['segment_id', 'node_start', 'node_end', 'x1', 'y1', 'x2', 'y2']
     )
     
-    return GraphData(new_nodes_df, new_segments_df)
+    return SimplificationResult(GraphData(new_nodes_df, new_segments_df))
 
-def simplify_graph_geometric(graph_data: GraphData, threshold_meters: float = 10.0) -> GraphData:
+def simplify_graph_geometric(graph_data: GraphData, threshold_meters: float = 10.0) -> SimplificationResult:
     """
     Simplify a graph by merging nearby nodes using geometric distance threshold.
     
@@ -152,7 +152,7 @@ def simplify_graph_geometric(graph_data: GraphData, threshold_meters: float = 10
         - Uses CGAL for high-performance spatial operations
     """
     if len(graph_data.nodes) == 0:
-        return graph_data
+        return SimplificationResult(graph_data)
     
     # Get node coordinates directly (skip topological to avoid removing valid intersections)
     node_coords = graph_data.nodes[['x', 'y']].values
@@ -245,7 +245,8 @@ def simplify_graph_geometric(graph_data: GraphData, threshold_meters: float = 10
     else:
         new_segments_df = pd.DataFrame(new_segments_data)
     
-    return GraphData(new_nodes_df, new_segments_df)
+    return SimplificationResult(GraphData(new_nodes_df, new_segments_df))
+
 def _find_node_clusters(coords: np.ndarray, threshold: float) -> List[List[int]]:
     """
     Find clusters of nodes within threshold distance using CGAL spatial indexing.
@@ -290,7 +291,7 @@ def _find_node_clusters(coords: np.ndarray, threshold: float) -> List[List[int]]
 
 def simplify_graph_parallel_cgal(nodes_df: pd.DataFrame, segments_df: pd.DataFrame, 
                                   distance_threshold: float = 10.0, 
-                                  angle_threshold_deg: float = 5.0) -> GraphData:
+                                  angle_threshold_deg: float = 5.0) -> SimplificationResult:
     """
     Simplify a graph by merging parallel segments.
     
@@ -318,7 +319,7 @@ def simplify_graph_parallel_cgal(nodes_df: pd.DataFrame, segments_df: pd.DataFra
         For large graphs, consider using the full CGAL implementation.
     """
     if len(nodes_df) == 0 or len(segments_df) == 0:
-        return GraphData(nodes_df, segments_df)
+        return SimplificationResult(GraphData(nodes_df, segments_df))
     
     nodes = nodes_df.copy()
     segments = segments_df.copy()
@@ -387,7 +388,7 @@ def simplify_graph_parallel_cgal(nodes_df: pd.DataFrame, segments_df: pd.DataFra
                     break
                     
     if not merged_segment_indices:
-        return GraphData(nodes_df.copy(), segments_df.copy())
+        return SimplificationResult(GraphData(nodes_df.copy(), segments_df.copy()))
     
     final_segments = [row.to_dict() for idx, row in segments.iterrows() if idx not in merged_segment_indices]
     final_segments.extend(new_segments)
@@ -395,9 +396,9 @@ def simplify_graph_parallel_cgal(nodes_df: pd.DataFrame, segments_df: pd.DataFra
     final_nodes = [row.to_dict() for idx, row in nodes.iterrows() if row['node_id'] not in node_replacements]
     final_nodes.extend(new_nodes)
     
-    return GraphData(pd.DataFrame(final_nodes), pd.DataFrame(final_segments))
+    return SimplificationResult(GraphData(pd.DataFrame(final_nodes), pd.DataFrame(final_segments)))
 
-def simplify_graph_guided_minkowski(graph: GraphData, radius: float = 5.0) -> GraphData:
+def simplify_graph_guided_minkowski(graph: GraphData, radius: float = 5.0) -> SimplificationResult:
     """
     Simplificación avanzada: Minkowski + Straight Skeleton + Poda Guiada por Topología.
     Utiliza el grafo original como ground-truth para eliminar la cristalización.
@@ -438,10 +439,10 @@ def simplify_graph_guided_minkowski(graph: GraphData, radius: float = 5.0) -> Gr
         'y2': y2_coords
     })
     
-    return GraphData(new_nodes, new_segments)
+    return SimplificationResult(GraphData(new_nodes, new_segments))
 
 
-def simplify_graph(graph_data: GraphData, threshold_meters: float = 10.0, method: str = 'auto') -> GraphData:
+def simplify_graph(graph_data: GraphData, threshold_meters: float = 10.0, method: str = 'geometric') -> SimplificationResult:
     """
     Simplify a graph using the most appropriate method based on threshold.
     

@@ -22,6 +22,12 @@ import os
 import pickle
 from pathlib import Path
 
+class SimplificationResult:
+    def __init__(self, graph, node_lineage=None, edge_lineage=None):
+        self.graph = graph
+        self.node_lineage = node_lineage or {}
+        self.edge_lineage = edge_lineage or {}
+
 
 class GraphData:
     """

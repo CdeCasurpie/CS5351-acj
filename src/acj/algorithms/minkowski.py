@@ -1,12 +1,12 @@
 import pandas as pd
 import numpy as np
 from collections import defaultdict
-from acj.data.io import GraphData
+from acj.data.io import GraphData, SimplificationResult
 
-def simplify_graph_minkowski(graph_data: GraphData, radius: float = 5.0) -> GraphData:
+def simplify_graph_minkowski(graph_data: GraphData, radius: float = 5.0) -> SimplificationResult:
     """Simplifica un grafo usando sumas de Minkowski y Straight Skeleton (CGAL vectorial)."""
     if len(graph_data.nodes) == 0 or len(graph_data.segments) == 0:
-        return graph_data
+        return SimplificationResult(graph_data)
 
     try:
         import sys
@@ -30,15 +30,16 @@ def simplify_graph_minkowski(graph_data: GraphData, radius: float = 5.0) -> Grap
         graph_data.segments[['segment_id', 'node_start', 'node_end']].values, dtype=np.float64
     )
 
-    nodes_list, segments_list = acj_core.simplify_graph_minkowski_cgal(
+    cgal_result = acj_core.simplify_graph_minkowski_cgal(
         nodes_array, segments_array, float(radius)
     )
+    nodes_list, segments_list = cgal_result.graph
     
     if not segments_list or not nodes_list:
-        return GraphData(
+        return SimplificationResult(GraphData(
             pd.DataFrame(columns=['node_id', 'x', 'y']), 
             pd.DataFrame(columns=['segment_id', 'node_start', 'node_end', 'x1', 'y1', 'x2', 'y2'])
-        )
+        ))
         
     node_coords = {n[0]: (n[1], n[2]) for n in nodes_list}
     adj = defaultdict(set)
@@ -85,6 +86,6 @@ def simplify_graph_minkowski(graph_data: GraphData, radius: float = 5.0) -> Grap
             seg_id_counter += 1
 
     minkowski_graph = GraphData(pd.DataFrame(final_nodes), pd.DataFrame(final_segments))
-    #return minkowski_graph
     from acj.algorithms.graph import simplify_graph_topological
     return simplify_graph_topological(minkowski_graph)
+
