@@ -13,6 +13,7 @@ Author: Cèsar, Alejandro, Jerimy.
 """
 
 # Importaciones con las nuevas rutas de Clean Architecture
+from .core.network import UrbanNetwork
 from .algorithms.map_index import MapIndex
 from .data.io import load_graph, load_map, GraphData
 from .algorithms.graph import simplify_graph, simplify_graph_topological, simplify_graph_geometric, simplify_graph_parallel_cgal
@@ -20,6 +21,7 @@ from .utils.render import render_graph, render_heatmap, render_comparison
 
 __version__ = "0.1.0"
 __all__ = [
+    "UrbanNetwork",
     "MapIndex",
     "load_graph",
     "load_map",
