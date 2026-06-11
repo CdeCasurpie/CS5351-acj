@@ -46,5 +46,38 @@ def main():
     else:
         print("\nNo se encontraron metadatos en el grafo simplificado.")
 
+    print("\n7. Renderizando comparación de grafos...")
+    from acj import MapIndex, GraphData, render_comparison
+    try:
+        def add_coords_to_edges(nodes_df, edges_df):
+            edges = edges_df.copy()
+            nodes = nodes_df.set_index('node_id')
+            edges['x1'] = edges['node_start'].map(nodes['x'])
+            edges['y1'] = edges['node_start'].map(nodes['y'])
+            edges['x2'] = edges['node_end'].map(nodes['x'])
+            edges['y2'] = edges['node_end'].map(nodes['y'])
+            return edges
+
+        original_edges_df = add_coords_to_edges(network.nodes_df, network.edges_df)
+        simplified_edges_df = add_coords_to_edges(simplified_network.nodes_df, simplified_network.edges_df)
+        
+        original_graph_data = GraphData(network.nodes_df, original_edges_df)
+        simplified_graph_data = GraphData(simplified_network.nodes_df, simplified_edges_df)
+        
+        map_index_original = MapIndex(original_graph_data)
+        map_index_simplified = MapIndex(simplified_graph_data)
+        
+        render_comparison(
+            map_index_original,
+            map_index_simplified,
+            title="Comparación: Grafo Original vs. Simplificado",
+            title_left="Grafo Original",
+            title_right="Simplificación Topológica"
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"\nNo se pudo renderizar la comparación (es posible que falte pyqt5 o dependencias de UI): {e}")
+
 if __name__ == "__main__":
     main()

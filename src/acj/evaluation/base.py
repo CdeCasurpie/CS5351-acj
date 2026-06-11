@@ -16,13 +16,13 @@ class BaseEvaluator(abc.ABC):
         
     def evaluate(self) -> Dict[str, float]:
         result_de_simplificacion = self.simplify()
-        simplified_network = resolve_semantics(self.original_network, result_de_simplificacion)
+        self.simplified_network = resolve_semantics(self.original_network, result_de_simplificacion)
         
         results = {}
         for metric in self.metrics:
             metric_name = metric.__class__.__name__
             if metric_name.endswith('Metric'):
                 metric_name = metric_name[:-6]
-            results[metric_name] = metric.compute(self.original_network, simplified_network)
+            results[metric_name] = metric.compute(self.original_network, self.simplified_network)
             
         return results
