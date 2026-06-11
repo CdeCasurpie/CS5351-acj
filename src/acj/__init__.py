@@ -14,14 +14,20 @@ Author: Cèsar, Alejandro, Jerimy.
 
 # Importaciones con las nuevas rutas de Clean Architecture
 from .core.network import UrbanNetwork
+from .core.semantics import resolve_semantics
 from .algorithms.map_index import MapIndex
-from .data.io import load_graph, load_map, GraphData
+from .data.io import load_graph, load_map, GraphData, SimplificationResult
 from .algorithms.graph import simplify_graph, simplify_graph_topological, simplify_graph_geometric, simplify_graph_parallel_cgal
 from .utils.render import render_graph, render_heatmap, render_comparison
+from .evaluation.base import BaseEvaluator
+from .evaluation.evaluators import ACJTopologicalEvaluator
+from .evaluation.metrics import CompressionRatioMetric, SemanticSpeedDistortionMetric
 
 __version__ = "0.1.0"
 __all__ = [
     "UrbanNetwork",
+    "resolve_semantics",
+    "SimplificationResult",
     "MapIndex",
     "load_graph",
     "load_map",
@@ -33,4 +39,8 @@ __all__ = [
     "render_graph",
     "render_heatmap",
     "render_comparison",
+    "BaseEvaluator",
+    "ACJTopologicalEvaluator",
+    "CompressionRatioMetric",
+    "SemanticSpeedDistortionMetric",
 ]
