@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "acj"
-version = "0.1.0"
+version = "0.1.1"
 description = "Simplificacion de grafos urbanos y analisis de criminalidad"
 authors = [
 	{ name="Alejandro", email="alejandro.calizaya@utec.edu.pe" },
