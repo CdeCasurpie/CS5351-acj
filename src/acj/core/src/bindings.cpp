@@ -1,6 +1,6 @@
 #include <pybind11/pybind11.h>
 #include "spatial_index.hpp"
-#include "graph_simplify.hpp" // Asegúrate de que la firma de simplify_graph_acj_master_cgal esté en este header
+#include "graph_simplify.hpp"
 
 namespace py = pybind11;
 
