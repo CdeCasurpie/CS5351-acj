@@ -50,4 +50,3 @@ output/
 # NixOs / direnv
 .direnv/
 .venv/
-.envrc

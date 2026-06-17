@@ -7,27 +7,26 @@ name = "acj"
 version = "0.1.1"
 description = "Simplificacion de grafos urbanos y analisis de criminalidad"
 authors = [
-	{ name="Alejandro", email="alejandro.calizaya@utec.edu.pe" },
-	{ name="Cesar", email="cesar.perales@utec.edu.pe" },
-	{ name="Jerimy", email="jerimy.sandoval@utec.edu.pe" }
+    { name="Alejandro", email="alejandro.calizaya@utec.edu.pe" },
+    { name="Cesar", email="cesar.perales@utec.edu.pe" },
+    { name="Jerimy", email="jerimy.sandoval@utec.edu.pe" }
+]
+requires-python = ">=3.10"
+
+dependencies = [
+    "numpy",
+    "pandas",
+    "networkx",
+    "geopandas",
+    "osmnx"
 ]
 
-requires-python = ">=3.10"
-dependencies = [
-	"pybind11",
-	"numpy",
-	"pandas",
-	"osmnx",
-	"vispy",
-	"PyQt5",
-	"pytest",
-	"geopandas",
-	"networkx"
-]
+[project.optional-dependencies]
+viz = ["vispy", "PyQt5"]
+test = ["pytest"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
 
 [tool.scikit-build]
 wheel.packages = ["src/acj"]
