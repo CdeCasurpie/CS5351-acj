@@ -42,24 +42,27 @@ PYBIND11_MODULE(acj_core, m) {
     // ==========================================================
     // 3. ALGORITMOS EXPERIMENTALES / LEGACY (Para Benchmarks)
     // ==========================================================
-    m.def("simplify_graph_topological_cgal", &simplify_graph_topological_cgal,
-          "Simplifica un grafo eliminando nodos de grado 2 (C++).",
-          py::arg("nodes"), py::arg("segments"));
+    py::module_ exp = m.def_submodule("_experimental",
+        "Legacy & experimental algorithms for benchmarking. Not part of the public API.");
 
-    m.def("simplify_graph_geometric_cgal", &simplify_graph_geometric_cgal,
-          "Simplifica un grafo fusionando intersecciones cercanas (C++).",
-          py::arg("nodes"), py::arg("segments"), py::arg("threshold"));
+    exp.def("simplify_graph_topological_cgal", &simplify_graph_topological_cgal,
+            "Simplifica un grafo eliminando nodos de grado 2 (C++).",
+            py::arg("nodes"), py::arg("segments"));
 
-    m.def("simplify_graph_parallel_cgal", &simplify_graph_parallel_cgal,
-          "Simplifica un grafo fusionando segmentos paralelos (e.g., doble calzada) (C++).",
-          py::arg("nodes"), py::arg("segments"), py::arg("distance_threshold"), py::arg("angle_threshold_deg"));
+    exp.def("simplify_graph_geometric_cgal", &simplify_graph_geometric_cgal,
+            "Simplifica un grafo fusionando intersecciones cercanas (C++).",
+            py::arg("nodes"), py::arg("segments"), py::arg("threshold"));
 
-    m.def("simplify_graph_minkowski_cgal", &simplify_graph_minkowski_cgal,
-          "Simplifica un grafo usando Minkowski Buffers y Straight Skeleton vectorial (C++).",
-          py::arg("nodes"), py::arg("segments"), py::arg("radius"));
+    exp.def("simplify_graph_parallel_cgal", &simplify_graph_parallel_cgal,
+            "Simplifica un grafo fusionando segmentos paralelos (e.g., doble calzada) (C++).",
+            py::arg("nodes"), py::arg("segments"), py::arg("distance_threshold"), py::arg("angle_threshold_deg"));
 
-    m.def("minkowski_guided_simplify", &minkowski_guided_simplify, 
-          "Esqueletización guiada por topología",
-          py::arg("nodes_x"), py::arg("nodes_y"), 
-          py::arg("seg_start"), py::arg("seg_end"), py::arg("radius"));
+    exp.def("simplify_graph_minkowski_cgal", &simplify_graph_minkowski_cgal,
+            "Simplifica un grafo usando Minkowski Buffers y Straight Skeleton vectorial (C++).",
+            py::arg("nodes"), py::arg("segments"), py::arg("radius"));
+
+    exp.def("minkowski_guided_simplify", &minkowski_guided_simplify,
+            "Esqueletización guiada por topología",
+            py::arg("nodes_x"), py::arg("nodes_y"),
+            py::arg("seg_start"), py::arg("seg_end"), py::arg("radius"));
 }

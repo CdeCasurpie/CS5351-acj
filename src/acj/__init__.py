@@ -17,7 +17,7 @@ from .core.network import UrbanNetwork
 from .core.semantics import resolve_semantics
 from .algorithms.map_index import MapIndex
 from .data.io import load_graph, load_map, GraphData, SimplificationResult
-from .algorithms.graph import simplify_graph, simplify_graph_topological, simplify_graph_geometric, simplify_graph_parallel_cgal
+from .algorithms.graph import simplify_graph
 from .utils.render import render_graph, render_heatmap, render_comparison
 from .evaluation.base import BaseEvaluator
 from .evaluation.evaluators import ACJTopologicalEvaluator
@@ -33,9 +33,6 @@ __all__ = [
     "load_map",
     "GraphData",
     "simplify_graph",
-    "simplify_graph_topological",
-    "simplify_graph_geometric",
-    "simplify_graph_parallel_cgal",
     "render_graph",
     "render_heatmap",
     "render_comparison",
