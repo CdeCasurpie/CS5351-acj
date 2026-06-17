@@ -128,3 +128,10 @@ This module acts as the central orchestrator for data decoupling.
 ### `acj.evaluation` (Research & Metrics Engine)
 - **`BaseEvaluator` / `ACJTopologicalEvaluator`**: Automates the simplification lifecycle. These evaluators accept a raw `UrbanNetwork`, inject it into C++ for reduction, apply the semantic resolution layer, and systematically test the results against predefined metrics.
 - **`CompressionRatioMetric` / `SemanticSpeedDistortionMetric`**: Pluggable metrics allowing researchers to quantitatively evaluate exactly how much data is compressed and what percentage of the semantic truth (like speed distributions) is distorted during network abstraction.
+
+## Authors
+
+This framework was developed as part of a thesis research project by:
+- Alejandro Calizaya
+- Cesar Perales
+- Jerimy Sandoval

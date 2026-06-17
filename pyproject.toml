@@ -4,12 +4,13 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "acj"
-version = "0.1.1"
+version = "0.1.2"
 description = "Simplificacion de grafos urbanos y analisis de criminalidad"
+readme = "README.md"
 authors = [
-    { name="Alejandro", email="alejandro.calizaya@utec.edu.pe" },
-    { name="Cesar", email="cesar.perales@utec.edu.pe" },
-    { name="Jerimy", email="jerimy.sandoval@utec.edu.pe" }
+    { name="Alejandro Calizaya", email="alejandro.calizaya@utec.edu.pe" },
+    { name="Cesar Perales", email="cesar.perales@utec.edu.pe" },
+    { name="Jerimy Sandoval", email="jerimi8462@gmail.com" }
 ]
 requires-python = ">=3.10"
 
