@@ -130,8 +130,8 @@ std::set<std::pair<long, long>> trace_new_segments(
 }
 
 void build_graph_structures(
-    py::array_t<double> nodes,
-    py::array_t<double> segments,
+    py::array_t<double, py::array::c_style | py::array::forcecast> nodes,
+    py::array_t<double, py::array::c_style | py::array::forcecast> segments,
     NodeCoordMap& node_map,
     NodeDegreeMap& node_degrees,
     AdjacencyMap& adjacency
@@ -166,12 +166,12 @@ void build_graph_structures(
 }
 
 void build_graph_structures(
-    py::array_t<double> nodes,
-    py::array_t<double> segments,
+    py::array_t<double, py::array::c_style | py::array::forcecast> nodes,
+    py::array_t<double, py::array::c_style | py::array::forcecast> segments,
     NodeCoordMap& node_map,
     NodeDegreeMap& node_degrees,
     AdjacencyMap& adjacency,
-    std::vector<SegmentInfo>& segments_info_list 
+    std::vector<SegmentInfo>& segments_info_list
 ) {
     build_graph_structures(nodes, segments, node_map, node_degrees, adjacency);
     
@@ -197,8 +197,9 @@ void build_graph_structures(
 }
 
 SimplificationResult minkowski_guided_simplify(
-    py::array_t<double> nodes_x_in, py::array_t<double> nodes_y_in,
-    py::array_t<long> seg_start_in, py::array_t<long> seg_end_in, double radius) 
+    py::array_t<double, py::array::c_style | py::array::forcecast> nodes_x_in,
+    py::array_t<double, py::array::c_style | py::array::forcecast> nodes_y_in,
+    py::array_t<long> seg_start_in, py::array_t<long> seg_end_in, double radius)
 {
     auto nx = nodes_x_in.unchecked<1>();
     auto ny = nodes_y_in.unchecked<1>();
@@ -371,8 +372,8 @@ SimplificationResult minkowski_guided_simplify(
     return SimplificationResult{py::make_tuple(np_nx, np_ny, np_ss, np_se)};
 }
 SimplificationResult simplify_graph_topological_cgal(
-    py::array_t<double> nodes,
-    py::array_t<double> segments
+    py::array_t<double, py::array::c_style | py::array::forcecast> nodes,
+    py::array_t<double, py::array::c_style | py::array::forcecast> segments
 ) {
     NodeCoordMap node_map;
     NodeDegreeMap node_degrees;
@@ -409,8 +410,8 @@ SimplificationResult simplify_graph_topological_cgal(
 }
 
 SimplificationResult simplify_graph_minkowski_cgal(
-	py::array_t<double> nodes,
-	py::array_t<double> segments,
+	py::array_t<double, py::array::c_style | py::array::forcecast> nodes,
+	py::array_t<double, py::array::c_style | py::array::forcecast> segments,
 	double radius
 ){
 	NodeCoordMap node_map;
@@ -505,8 +506,8 @@ SimplificationResult simplify_graph_minkowski_cgal(
 }
 
 SimplificationResult simplify_graph_geometric_cgal(
-    py::array_t<double> nodes,
-    py::array_t<double> segments,
+    py::array_t<double, py::array::c_style | py::array::forcecast> nodes,
+    py::array_t<double, py::array::c_style | py::array::forcecast> segments,
     double threshold
 ) {
     NodeCoordMap node_map;
@@ -604,8 +605,8 @@ SimplificationResult simplify_graph_geometric_cgal(
 }
 
 SimplificationResult simplify_graph_parallel_cgal(
-    py::array_t<double> nodes,
-    py::array_t<double> segments,
+    py::array_t<double, py::array::c_style | py::array::forcecast> nodes,
+    py::array_t<double, py::array::c_style | py::array::forcecast> segments,
     double distance_threshold,
     double angle_threshold_deg
 ) {
@@ -744,8 +745,8 @@ SimplificationResult simplify_graph_parallel_cgal(
 // =====================================================================
 
 SimplificationResult simplify_graph_acj_master_cgal(
-    py::array_t<double> nodes,
-    py::array_t<double> segments,
+    py::array_t<double, py::array::c_style | py::array::forcecast> nodes,
+    py::array_t<double, py::array::c_style | py::array::forcecast> segments,
     double angulo_maximo_desviacion,
     double factor_ajuste,
     double factor_epsilon,
@@ -753,33 +754,31 @@ SimplificationResult simplify_graph_acj_master_cgal(
 ) {
     auto nodes_buf = nodes.request();
     auto segs_buf = segments.request();
-    
+
     if (nodes_buf.ndim != 2 || nodes_buf.shape[1] != 3) throw std::runtime_error("Nodes must be Nx3 array [id, x, y]");
     if (segs_buf.ndim != 2 || segs_buf.shape[1] != 3) throw std::runtime_error("Segments must be Mx3 array [edge_id, u, v]");
 
-    size_t num_nodes = nodes_buf.shape[0];
-    size_t num_segs = segs_buf.shape[0];
+    size_t num_nodes = static_cast<size_t>(nodes_buf.shape[0]);
+    size_t num_segs  = static_cast<size_t>(segs_buf.shape[0]);
 
     const double* nodes_ptr = static_cast<const double*>(nodes_buf.ptr);
-    const double* segs_ptr = static_cast<const double*>(segs_buf.ptr);
+    const double* segs_ptr  = static_cast<const double*>(segs_buf.ptr);
 
-    std::map<long long, Point_pt> node_coords;
-    std::map<long long, int> in_degree;
-    std::map<long long, int> out_degree;
-    std::map<long long, std::vector<std::pair<long long, long long>>> adj_list;
+    std::unordered_map<long long, Point_pt> node_coords;
+    std::unordered_map<long long, int> in_degree;
+    std::unordered_map<long long, int> out_degree;
+    std::unordered_map<long long, std::vector<std::pair<long long, long long>>> adj_list;
 
+    node_coords.reserve(num_nodes);
     for (size_t i = 0; i < num_nodes; ++i) {
         long long id = static_cast<long long>(nodes_ptr[3 * i]);
-        double x = nodes_ptr[3 * i + 1];
-        double y = nodes_ptr[3 * i + 2];
-        node_coords[id] = Point_pt(x, y);
+        node_coords[id] = Point_pt(nodes_ptr[3 * i + 1], nodes_ptr[3 * i + 2]);
     }
 
     for (size_t i = 0; i < num_segs; ++i) {
         long long edge_id = static_cast<long long>(segs_ptr[3 * i]);
-        long long u = static_cast<long long>(segs_ptr[3 * i + 1]);
-        long long v = static_cast<long long>(segs_ptr[3 * i + 2]);
-        
+        long long u       = static_cast<long long>(segs_ptr[3 * i + 1]);
+        long long v       = static_cast<long long>(segs_ptr[3 * i + 2]);
         out_degree[u]++;
         in_degree[v]++;
         adj_list[u].push_back({v, edge_id});
@@ -789,32 +788,36 @@ SimplificationResult simplify_graph_acj_master_cgal(
     std::set<long long> anchor_nodes;
     for (size_t i = 0; i < num_nodes; ++i) {
         long long id = static_cast<long long>(nodes_ptr[3 * i]);
-        if (in_degree[id] != 1 || out_degree[id] != 1) {
+        if (in_degree[id] != 1 || out_degree[id] != 1)
             anchor_nodes.insert(id);
-        }
     }
+
+    // Precompute angle threshold once to avoid sqrt/acos in the hot BFS loop
+    const double cos_deviation_threshold = std::cos(angulo_maximo_desviacion * M_PI / 180.0);
+    const double cos_threshold_sq        = cos_deviation_threshold * cos_deviation_threshold;
 
     std::set<long long> visited_edges;
     std::vector<std::vector<Point_pt>> all_original_paths;
     std::vector<std::pair<long long, long long>> final_edges_uv;
 
+    // Collect new anchors separately to avoid mutating anchor_nodes while iterating it
+    std::vector<long long> new_anchors;
     for (long long start_node : anchor_nodes) {
         for (const auto& edge : adj_list[start_node]) {
             long long next_node = edge.first;
-            long long edge_id = edge.second;
+            long long edge_id   = edge.second;
 
             if (visited_edges.count(edge_id)) continue;
 
             std::vector<long long> path_nodes = {start_node, next_node};
             visited_edges.insert(edge_id);
-
             long long current_node = next_node;
 
             while (anchor_nodes.find(current_node) == anchor_nodes.end()) {
                 if (adj_list[current_node].empty()) break;
-                
-                auto next_edge = adj_list[current_node][0];
-                long long next_v = next_edge.first;
+
+                auto     next_edge    = adj_list[current_node][0];
+                long long next_v      = next_edge.first;
                 long long next_edge_id = next_edge.second;
 
                 Point_pt p1 = node_coords[path_nodes[path_nodes.size() - 2]];
@@ -824,16 +827,16 @@ SimplificationResult simplify_graph_acj_master_cgal(
                 Vector_k v1(p1, p2);
                 Vector_k v2(p2, p3);
 
-                double norm1 = std::sqrt(CGAL::to_double(v1.squared_length()));
-                double norm2 = std::sqrt(CGAL::to_double(v2.squared_length()));
+                double sq_len1 = CGAL::to_double(v1.squared_length());
+                double sq_len2 = CGAL::to_double(v2.squared_length());
 
-                if (norm1 > 0 && norm2 > 0) {
+                if (sq_len1 > 0.0 && sq_len2 > 0.0) {
                     double dot_product = CGAL::to_double(v1 * v2);
-                    double cos_theta = std::clamp(dot_product / (norm1 * norm2), -1.0, 1.0);
-                    double angle_deviation = std::acos(cos_theta) * (180.0 / M_PI);
-
-                    if (angle_deviation > angulo_maximo_desviacion) {
-                        anchor_nodes.insert(current_node);
+                    bool exceeds = (cos_deviation_threshold >= 0.0)
+                        ? (dot_product < 0.0 || dot_product * dot_product < cos_threshold_sq * sq_len1 * sq_len2)
+                        : (dot_product < 0.0 && dot_product * dot_product > cos_threshold_sq * sq_len1 * sq_len2);
+                    if (exceeds) {
+                        new_anchors.push_back(current_node);
                         break;
                     }
                 }
@@ -844,42 +847,39 @@ SimplificationResult simplify_graph_acj_master_cgal(
             }
 
             std::vector<Point_pt> path_coords;
+            path_coords.reserve(path_nodes.size());
             for (long long n : path_nodes) path_coords.push_back(node_coords[n]);
-            
+
             if (path_coords.size() > 1) {
-                all_original_paths.push_back(path_coords);
+                all_original_paths.push_back(std::move(path_coords));
                 final_edges_uv.push_back({start_node, current_node});
             }
         }
     }
+    anchor_nodes.insert(new_anchors.begin(), new_anchors.end());
 
     // --- FASE 2: MOTOR GEOMÉTRICO (Voronoi Dual) ---
-    DT dt;
-    std::map<Point_pt, long long> point_to_node_id;
+    // DT_Info stores node_id directly in each vertex, eliminating the float-key lookup map
+    DT_Info dt;
     for (size_t i = 0; i < num_nodes; ++i) {
-        long long id = static_cast<long long>(nodes_ptr[3 * i]);
-        Point_pt pt = node_coords[id];
-        dt.insert(pt);
-        point_to_node_id[pt] = id;
+        long long id  = static_cast<long long>(nodes_ptr[3 * i]);
+        auto      vh  = dt.insert(node_coords[id]);
+        vh->info()    = id;
     }
 
-    std::map<long long, double> node_epsilon;
+    std::unordered_map<long long, double> node_epsilon;
     std::vector<double> valid_areas;
 
     for (auto vit = dt.finite_vertices_begin(); vit != dt.finite_vertices_end(); ++vit) {
-        long long node_id = point_to_node_id[vit->point()];
-        bool is_infinite = false;
+        long long node_id = vit->info();
+        bool is_infinite  = false;
         std::vector<Point_pt> voronoi_vertices;
 
-        auto fcirc = dt.incident_faces(vit);
+        auto fcirc  = dt.incident_faces(vit);
         auto fstart = fcirc;
-        
         if (fcirc != nullptr) {
             do {
-                if (dt.is_infinite(fcirc)) {
-                    is_infinite = true;
-                    break;
-                }
+                if (dt.is_infinite(fcirc)) { is_infinite = true; break; }
                 voronoi_vertices.push_back(dt.dual(fcirc));
                 fcirc++;
             } while (fcirc != fstart);
@@ -887,20 +887,22 @@ SimplificationResult simplify_graph_acj_master_cgal(
 
         if (!is_infinite && voronoi_vertices.size() >= 3) {
             double area = 0.0;
-            size_t m = voronoi_vertices.size();
+            size_t m    = voronoi_vertices.size();
             for (size_t j = 0; j < m; ++j) {
-                size_t next_j = (j + 1) % m;
-                area += voronoi_vertices[j].x() * voronoi_vertices[next_j].y() - voronoi_vertices[next_j].x() * voronoi_vertices[j].y();
+                size_t nj = (j + 1) % m;
+                area += voronoi_vertices[j].x() * voronoi_vertices[nj].y()
+                      - voronoi_vertices[nj].x() * voronoi_vertices[j].y();
             }
             area = 0.5 * std::abs(area);
             node_epsilon[node_id] = std::sqrt(area) * factor_epsilon;
             valid_areas.push_back(area);
         } else {
-            node_epsilon[node_id] = -1.0; 
+            node_epsilon[node_id] = -1.0;
         }
     }
 
-    double global_avg_area = valid_areas.empty() ? 100.0 : std::accumulate(valid_areas.begin(), valid_areas.end(), 0.0) / valid_areas.size();
+    double global_avg_area       = valid_areas.empty() ? 100.0
+        : std::accumulate(valid_areas.begin(), valid_areas.end(), 0.0) / valid_areas.size();
     double global_epsilon_fallback = std::sqrt(global_avg_area) * factor_epsilon;
 
     for (auto& pair : node_epsilon) {
@@ -910,25 +912,23 @@ SimplificationResult simplify_graph_acj_master_cgal(
     // --- CONSTRUCCIÓN DEL AABB TREE ---
     std::vector<Segment_k> flatten_original_segments;
     for (const auto& path : all_original_paths) {
-        for (size_t i = 0; i < path.size() - 1; ++i) {
-            flatten_original_segments.emplace_back(path[i], path[i+1]);
-        }
+        for (size_t i = 0; i < path.size() - 1; ++i)
+            flatten_original_segments.emplace_back(path[i], path[i + 1]);
     }
-    
+
     AABB_Tree spatial_tree(flatten_original_segments.begin(), flatten_original_segments.end());
     if (with_index) spatial_tree.accelerate_distance_queries();
 
-    std::vector<double> out_nodes_data;
-    std::vector<double> out_edges_data;
-    std::set<long long> exported_nodes;
-    long long out_edge_counter = 0;
-
+    // Compute all simplified paths first; enables exact pre-allocation of output buffers
+    std::vector<std::vector<Point_pt>> all_simplified_paths(all_original_paths.size());
+    // Hoist allocation outside nested loops; reused via clear()+reserve() each iteration
+    std::vector<std::vector<Segment_k>::const_iterator> intersected_primitives;
     for (size_t i = 0; i < all_original_paths.size(); ++i) {
         long long u = final_edges_uv[i].first;
         long long v = final_edges_uv[i].second;
 
-        double eps_u = node_epsilon.count(u) ? node_epsilon[u] : global_epsilon_fallback;
-        double eps_v = node_epsilon.count(v) ? node_epsilon[v] : global_epsilon_fallback;
+        double eps_u       = node_epsilon.count(u) ? node_epsilon[u] : global_epsilon_fallback;
+        double eps_v       = node_epsilon.count(v) ? node_epsilon[v] : global_epsilon_fallback;
         double edge_epsilon = ((eps_u + eps_v) / 2.0) * factor_ajuste;
 
         std::vector<Point_pt> simplified_path = simplify_polyline(all_original_paths[i], edge_epsilon);
@@ -936,52 +936,68 @@ SimplificationResult simplify_graph_acj_master_cgal(
         if (with_index && simplified_path.size() > 2) {
             bool collides = false;
             for (size_t j = 0; j < simplified_path.size() - 1; ++j) {
-                Segment_k test_seg(simplified_path[j], simplified_path[j+1]);
-                
-                // Usamos el iterador base definido en tu types.hpp
-                std::vector<std::vector<Segment_k>::const_iterator> intersected_primitives;
+                Segment_k test_seg(simplified_path[j], simplified_path[j + 1]);
+                intersected_primitives.clear();
+                intersected_primitives.reserve(4);
                 spatial_tree.all_intersected_primitives(test_seg, std::back_inserter(intersected_primitives));
-                
-                // Corrección de la variable: Un segmento siempre choca consigo mismo y sus vecinos. 
-                // Si el árbol devuelve más de 2 o 3 cruces, es una colisión real con otra calle.
-                if (intersected_primitives.size() > 2) { 
-                    collides = true;
-                    break;
-                }
+                if (intersected_primitives.size() > 2) { collides = true; break; }
             }
-            if (collides) {
-                simplified_path = simplify_polyline(all_original_paths[i], 0.5); 
-            }
+            if (collides)
+                simplified_path = simplify_polyline(all_original_paths[i], 0.5);
         }
+        all_simplified_paths[i] = std::move(simplified_path);
+    }
 
-        for (size_t j = 0; j < simplified_path.size() - 1; ++j) {
-            out_edges_data.push_back(static_cast<double>(out_edge_counter++));
-            out_edges_data.push_back(static_cast<double>(u));
-            out_edges_data.push_back(static_cast<double>(v));
-            
-            if (!exported_nodes.count(u)) {
-                out_nodes_data.push_back(static_cast<double>(u));
-                out_nodes_data.push_back(simplified_path[0].x());
-                out_nodes_data.push_back(simplified_path[0].y());
-                exported_nodes.insert(u);
-            }
-            if (!exported_nodes.count(v)) {
-                out_nodes_data.push_back(static_cast<double>(v));
-                out_nodes_data.push_back(simplified_path[simplified_path.size()-1].x());
-                out_nodes_data.push_back(simplified_path[simplified_path.size()-1].y());
-                exported_nodes.insert(v);
-            }
+    // Count exact output sizes for direct buffer pre-allocation (no intermediate vectors)
+    size_t out_n_count = 0, out_e_count = 0;
+    {
+        std::set<long long> node_count_set;
+        for (size_t i = 0; i < all_simplified_paths.size(); ++i) {
+            const auto& sp = all_simplified_paths[i];
+            if (sp.size() < 2) continue;
+            long long u = final_edges_uv[i].first;
+            long long v = final_edges_uv[i].second;
+            out_e_count += sp.size() - 1;
+            if (!node_count_set.count(u)) { ++out_n_count; node_count_set.insert(u); }
+            if (!node_count_set.count(v)) { ++out_n_count; node_count_set.insert(v); }
         }
     }
 
-    size_t out_n_size = out_nodes_data.size() / 3;
-    size_t out_e_size = out_edges_data.size() / 3;
+    py::array_t<double> return_nodes({(py::ssize_t)out_n_count, (py::ssize_t)3});
+    py::array_t<double> return_edges({(py::ssize_t)out_e_count, (py::ssize_t)3});
+    double* nodes_out = return_nodes.mutable_data();
+    double* edges_out = return_edges.mutable_data();
+    std::set<long long> exported_nodes;
+    size_t n_idx = 0, e_idx = 0;
 
-    py::array_t<double> return_nodes({(py::ssize_t)out_n_size, (py::ssize_t)3});
-    py::array_t<double> return_edges({(py::ssize_t)out_e_size, (py::ssize_t)3});
+    for (size_t i = 0; i < all_simplified_paths.size(); ++i) {
+        const auto& simplified_path = all_simplified_paths[i];
+        if (simplified_path.size() < 2) continue;
+        long long u = final_edges_uv[i].first;
+        long long v = final_edges_uv[i].second;
 
-    std::copy(out_nodes_data.begin(), out_nodes_data.end(), return_nodes.mutable_data());
-    std::copy(out_edges_data.begin(), out_edges_data.end(), return_edges.mutable_data());
+        if (!exported_nodes.count(u)) {
+            nodes_out[n_idx * 3 + 0] = static_cast<double>(u);
+            nodes_out[n_idx * 3 + 1] = simplified_path.front().x();
+            nodes_out[n_idx * 3 + 2] = simplified_path.front().y();
+            ++n_idx;
+            exported_nodes.insert(u);
+        }
+        if (!exported_nodes.count(v)) {
+            nodes_out[n_idx * 3 + 0] = static_cast<double>(v);
+            nodes_out[n_idx * 3 + 1] = simplified_path.back().x();
+            nodes_out[n_idx * 3 + 2] = simplified_path.back().y();
+            ++n_idx;
+            exported_nodes.insert(v);
+        }
+
+        for (size_t j = 0; j < simplified_path.size() - 1; ++j) {
+            edges_out[e_idx * 3 + 0] = static_cast<double>(e_idx);
+            edges_out[e_idx * 3 + 1] = static_cast<double>(u);
+            edges_out[e_idx * 3 + 2] = static_cast<double>(v);
+            ++e_idx;
+        }
+    }
 
     return SimplificationResult{py::make_tuple(return_nodes, return_edges)};
 }

@@ -31,6 +31,7 @@ struct SimplificationResult {
 
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Delaunay_triangulation_2.h>
+#include <CGAL/Triangulation_vertex_base_with_info_2.h>
 #include <CGAL/Exact_predicates_exact_constructions_kernel.h>
 #include <CGAL/Polygon_2.h>
 #include <CGAL/Polygon_with_holes_2.h>
@@ -49,6 +50,9 @@ struct SimplificationResult {
 
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef CGAL::Delaunay_triangulation_2<K>                   DT;
+typedef CGAL::Triangulation_vertex_base_with_info_2<long long, K> Vb_info;
+typedef CGAL::Triangulation_data_structure_2<Vb_info>             Tds_info;
+typedef CGAL::Delaunay_triangulation_2<K, Tds_info>               DT_Info;
 typedef K::Point_2                                          Point_pt;
 typedef K::Segment_2                                        Segment_k;
 typedef K::Vector_2                                         Vector_k;
@@ -76,6 +80,6 @@ typedef Neighbor_search::Tree Tree;
 
 namespace py = pybind11;
 
-typedef std::map<long, Point_pt> NodeCoordMap;
-typedef std::map<long, int> NodeDegreeMap;
-typedef std::map<long, std::vector<long>> AdjacencyMap;
+typedef std::unordered_map<long, Point_pt> NodeCoordMap;
+typedef std::unordered_map<long, int> NodeDegreeMap;
+typedef std::unordered_map<long, std::vector<long>> AdjacencyMap;
