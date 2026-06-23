@@ -1,0 +1,42 @@
+# Core scientific stack
+numpy
+pandas
+scipy
+
+# Geospatial
+geopandas
+osmnx
+shapely
+pyproj
+pyogrio
+
+# Graph
+networkx
+
+# Visualization
+matplotlib
+vispy
+freetype-py
+hsluv
+
+# Testing
+pytest
+
+# pybind11 Python package (CMake also finds this for building the .so)
+pybind11
+
+# Thesis benchmark competitors
+neatnet
+
+# HTTP / misc utils
+requests
+certifi
+charset-normalizer
+idna
+urllib3
+python-dateutil
+pytz
+tzdata
+Pygments
+typing_extensions
+six

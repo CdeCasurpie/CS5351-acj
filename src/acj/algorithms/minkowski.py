@@ -30,7 +30,7 @@ def simplify_graph_minkowski(graph_data: GraphData, radius: float = 5.0) -> Simp
         graph_data.segments[['segment_id', 'node_start', 'node_end']].values, dtype=np.float64
     )
 
-    cgal_result = acj_core.simplify_graph_minkowski_cgal(
+    cgal_result = acj_core._experimental.simplify_graph_minkowski_cgal(
         nodes_array, segments_array, float(radius)
     )
     nodes_list, segments_list = cgal_result.graph

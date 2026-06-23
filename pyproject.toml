@@ -27,3 +27,7 @@ where = ["src"]
 
 [tool.scikit-build]
 wheel.packages = ["src/acj"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "build"]
+testpaths  = ["tests"]

@@ -45,6 +45,7 @@ build/Makefile
 # ACJ specific
 cache/
 output/
+outputs/
 *.tar.xz
 
 # NixOs / direnv

@@ -30,7 +30,7 @@ class ACJTopologicalEvaluator(BaseEvaluator):
             segments_df[['segment_id', 'node_start', 'node_end']].values, dtype=np.float64
         )
         
-        cgal_result = acj_core.simplify_graph_topological_cgal(nodes_array, segments_array)
+        cgal_result = acj_core._experimental.simplify_graph_topological_cgal(nodes_array, segments_array)
         
         nodes_list, segments_list = cgal_result.graph
         

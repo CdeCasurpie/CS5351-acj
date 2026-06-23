@@ -66,6 +66,50 @@ jobs:
           name: cibw-sdist
           path: dist/*.tar.gz
 
+  benchmark:
+    name: Run thesis benchmark
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache OSM network data
+        uses: actions/cache@v4
+        with:
+          path: cache/
+          key: osm-cache-barranco-v1
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3 python3-pip python3-dev \
+            build-essential cmake git pkg-config \
+            pybind11-dev \
+            libboost-all-dev libgmp-dev libmpfr-dev libcgal-dev \
+            libspatialindex-dev libgeos-dev libproj-dev \
+            libgl1 libglib2.0-0
+          pip3 install -r requirements.txt --break-system-packages
+
+      - name: Build C++ extension
+        run: |
+          mkdir -p build
+          cd build
+          cmake ..
+          make -j$(nproc)
+
+      - name: Run benchmark
+        env:
+          PYTHONPATH: ${{ github.workspace }}/build:${{ github.workspace }}/src
+        run: python3 scripts/run_benchmark.py
+
+      - name: Upload benchmark outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: tesis-benchmark-results
+          path: outputs/
+          retention-days: 90
+
   upload_pypi:
     name: Upload to PyPI
     needs: [build_wheels, build_sdist]
