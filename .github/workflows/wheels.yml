@@ -43,7 +43,7 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_BEFORE_ALL_LINUX: "dnf install -y gmp-devel mpfr-devel boost-devel"
           CIBW_BEFORE_ALL_MACOS: "brew install gmp mpfr boost"
-          CIBW_ENVIRONMENT_MACOS: 'MACOSX_DEPLOYMENT_TARGET="15.0"'
+          CIBW_ENVIRONMENT_MACOS: 'MACOSX_DEPLOYMENT_TARGET="15.0" CMAKE_OSX_DEPLOYMENT_TARGET="15.0"'
           CIBW_BEFORE_ALL_WINDOWS: "vcpkg install boost:x64-windows gmp:x64-windows mpfr:x64-windows"
           CIBW_BEFORE_BUILD_WINDOWS: "pip install delvewheel"
           CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: "delvewheel repair --add-path C:\\vcpkg\\installed\\x64-windows\\bin -w {dest_dir} {wheel}"
